@@ -281,6 +281,11 @@ const SIMPLE_ICON = `<svg viewBox="0 0 20 20" width="18" height="18" fill="curre
   <line x1="5" y1="15" x2="10" y2="15" stroke="currentColor" stroke-width="1" opacity="0.5"/>
 </svg>`;
 
+const FILE_OPEN_ICON = `<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5">
+  <path d="M3 17V3a1 1 0 0 1 1-1h5l2 2h5a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>
+  <path d="M8 10v4m-2-2h4" stroke-linecap="round"/>
+</svg>`;
+
 const GITHUB_ICON = `<svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
   <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
 </svg>`;
@@ -318,6 +323,7 @@ function App() {
   let editorRef: SyntaxHighlightEditorHandle | null = null;
   let simpleEditorRef: HTMLTextAreaElement | null = null;
   let previewRef: HTMLDivElement | null = null;
+  let fileInputRef: HTMLInputElement | null = null;
 
   // Track if content has been modified since load
   let hasModified = false;
@@ -641,6 +647,30 @@ function App() {
   });
 
 
+  // File open handlers
+  const handleFileOpen = () => {
+    fileInputRef?.click();
+  };
+
+  const handleFileSelect = (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = reader.result as string;
+      hasModified = true;
+      batch(() => {
+        setSource(content);
+        setAst(parse(content));
+      });
+    };
+    reader.readAsText(file);
+    // Reset so the same file can be re-selected
+    input.value = "";
+  };
+
   // Debounced AST parsing - separate from source updates for better input responsiveness
   let astParseTimer: number | undefined;
   const AST_PARSE_DELAY = 100; // ms - delay AST parsing to not block input
@@ -721,6 +751,9 @@ function App() {
               </span>
             </div>
             <div class="toolbar-actions">
+              <button onClick={handleFileOpen} class="github-link" title="Open file">
+                <Icon svg={FILE_OPEN_ICON} />
+              </button>
               <button onClick={toggleDark} class="theme-toggle" title="Toggle dark mode">
                 {isDark() ? "☀️" : "🌙"}
               </button>
@@ -734,6 +767,13 @@ function App() {
                 <Icon svg={GITHUB_ICON} />
               </a>
             </div>
+            <input
+              type="file"
+              ref={(el) => { fileInputRef = el; }}
+              accept=".md,.markdown,.txt"
+              style={{ display: "none" }}
+              onChange={handleFileSelect}
+            />
           </header>
           <div class={containerClass}>
             {/* Editor panel - visibility controlled by CSS class */}
