@@ -24,6 +24,7 @@
     "@playwright/test": "^1.57.0",
     "@types/mdast": "^4.0.4",
     "@types/unist": "^3.0.3",
+    "mermaid": "^11.12.3",
     "playwright": "^1.57.0",
     "preact": "^10.28.0",
     "puppeteer": "^24.34.0",
