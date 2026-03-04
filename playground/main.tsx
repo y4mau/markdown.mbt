@@ -329,6 +329,7 @@ function App() {
   let hasModified = false;
   let lastSyncedTimestamp = 0;
   let isSaving = false;
+  let loadedFromQuery = false;
 
   // Debounced source for saving
   const [debouncedSource, setDebouncedSource] = createSignal("");
@@ -414,19 +415,39 @@ function App() {
     onCleanup(() => window.removeEventListener("keydown", handleKeyDown));
   });
 
-  // Load initial content from IndexedDB
+  // Load initial content: query param > IndexedDB > default
   onMount(async () => {
     let content = initialMarkdown;
     let timestamp = 0;
 
-    try {
-      const idbData = await loadFromIDB();
-      if (idbData && idbData.content) {
-        content = idbData.content;
-        timestamp = idbData.timestamp;
+    // Check for ?file= query parameter (dev server only)
+    const fileParam = new URLSearchParams(window.location.search).get("file");
+    if (fileParam && fileParam.trim()) {
+      const url = new URL("/__local-file", location.origin);
+      url.searchParams.set("path", fileParam);
+      try {
+        const res = await fetch(url.href);
+        if (res.ok) {
+          content = await res.text();
+          loadedFromQuery = true;
+        } else {
+          console.warn(`Failed to load file "${fileParam}": ${res.status} ${res.statusText}`);
+        }
+      } catch (e) {
+        console.warn(`Failed to fetch local file "${fileParam}":`, e);
       }
-    } catch (e) {
-      console.error("Failed to load from IndexedDB:", e);
+    }
+
+    if (!loadedFromQuery) {
+      try {
+        const idbData = await loadFromIDB();
+        if (idbData && idbData.content) {
+          content = idbData.content;
+          timestamp = idbData.timestamp;
+        }
+      } catch (e) {
+        console.error("Failed to load from IndexedDB:", e);
+      }
     }
 
     setSource(content);
@@ -445,7 +466,7 @@ function App() {
   onMount(() => {
     async function handleVisibilityChange() {
       if (document.visibilityState !== "visible") return;
-      if (isSaving || hasModified) return;
+      if (isSaving || hasModified || loadedFromQuery) return;
 
       try {
         const idbData = await loadFromIDB();
