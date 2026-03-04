@@ -4,6 +4,7 @@ import type { Root } from "mdast";
 import { MarkdownRenderer, RawHtml, sanitizeSvg, type RendererCallbacks, type RendererOptions } from "./ast-renderer";
 import { SyntaxHighlightEditor, type SyntaxHighlightEditorHandle } from "./SyntaxHighlightEditor";
 import { MoonlightEditor } from "./MoonlightEditor";
+import { MermaidDiagram } from "./MermaidDiagram";
 
 // IndexedDB for content (reliable async storage)
 const IDB_NAME = "markdown-editor";
@@ -69,6 +70,17 @@ Interactive SVG editing with [Moonlight](https://github.com/mizchi/moonlight):
   <circle cx="280" cy="90" r="50" fill="#e74c3c"/>
   <polygon points="200,200 150,280 250,280" fill="#2ecc71"/>
 </svg>
+\`\`\`
+
+## Mermaid Diagram
+
+\`\`\`mermaid
+graph TD
+    A[Parse Markdown] --> B{Block or Inline?}
+    B -- Block --> C[Block Parser]
+    B -- Inline --> D[Inline Parser]
+    C --> E[CST Node]
+    D --> E
 \`\`\`
 
 ## Interactive Task List
@@ -626,6 +638,17 @@ function App() {
             theme={isDark() ? "dark" : "light"}
           />
         ),
+      },
+      // Render ```mermaid blocks as live diagrams
+      // ```mermaid:code falls through to syntax highlighting
+      mermaid: {
+        render: (code, span, _key, mode) => {
+          if (mode === "code") return null;
+          // Use span as key: span encodes block offset range, so it changes when
+          // code content changes length. This forces remount, since props.code
+          // is a plain string (not reactive) inside createEffect.
+          return <MermaidDiagram key={span} code={code} span={span} isDark={isDark} />;
+        },
       },
     },
   };
