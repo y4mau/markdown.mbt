@@ -642,12 +642,9 @@ function App() {
       // Render ```mermaid blocks as live diagrams
       // ```mermaid:code falls through to syntax highlighting
       mermaid: {
-        render: (code, span, _key, mode) => {
+        render: (code, span, key, mode) => {
           if (mode === "code") return null;
-          // Use span as key: span encodes block offset range, so it changes when
-          // code content changes length. This forces remount, since props.code
-          // is a plain string (not reactive) inside createEffect.
-          return <MermaidDiagram key={span} code={code} span={span} isDark={isDark} />;
+          return <MermaidDiagram key={key} code={code} span={span} />;
         },
       },
     },
