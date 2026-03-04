@@ -145,6 +145,25 @@
       color: #22c55e;
     }
 
+    .save-status.error {
+      opacity: 1;
+      color: #f85149;
+    }
+
+    /* File mode: always visible (show filename even at idle) */
+    .save-status.file-mode {
+      opacity: 1;
+    }
+
+    .save-status .file-name {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .save-status .file-modified-dot {
+      color: var(--accent-color);
+    }
+
     .theme-toggle {
       background: transparent;
       border: 1px solid var(--border-color);

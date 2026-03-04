@@ -318,7 +318,9 @@ function App() {
     if (saved) return saved === "dark";
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   })());
-  const [saveStatus, setSaveStatus] = createSignal<"saved" | "saving" | "idle">("idle");
+  const [saveStatus, setSaveStatus] = createSignal<"saved" | "saving" | "idle" | "error">("idle");
+  const [filePath, setFilePath] = createSignal<string | null>(null);
+  const [isDirty, setIsDirty] = createSignal(false);
   const [viewMode, setViewMode] = createSignal<ViewMode>(initialUIState.viewMode);
   const [editorMode, setEditorMode] = createSignal<EditorMode>(initialUIState.editorMode);
 
@@ -329,7 +331,7 @@ function App() {
   const previewBtnClass = createMemo(() => `view-mode-btn ${viewMode() === "preview" ? "active" : ""}`);
   const highlightBtnClass = createMemo(() => `view-mode-btn ${editorMode() === "highlight" ? "active" : ""}`);
   const simpleBtnClass = createMemo(() => `view-mode-btn ${editorMode() === "simple" ? "active" : ""}`);
-  const saveStatusClass = createMemo(() => `save-status ${saveStatus()}`);
+  const saveStatusClass = createMemo(() => `save-status ${saveStatus()}${filePath() ? " file-mode" : ""}`);
 
   // Refs
   let editorRef: SyntaxHighlightEditorHandle | null = null;
@@ -343,6 +345,10 @@ function App() {
   let isSaving = false;
   let loadedFromQuery = false;
 
+  // Revision counter for preventing save races
+  let saveRevision = 0;
+  let savedStatusTimer: number | undefined;
+
   // Debounced source for saving
   const [debouncedSource, setDebouncedSource] = createSignal("");
   let debounceTimer: number | undefined;
@@ -354,6 +360,26 @@ function App() {
       setDebouncedSource(value);
     }, DEBOUNCE_DELAY);
   });
+
+  // Derived filename for toolbar display
+  const fileName = createMemo(() => {
+    const fp = filePath();
+    if (!fp) return null;
+    return fp.split("/").pop() || fp;
+  });
+
+  // Save content to local file via dev server endpoint
+  async function saveLocalFile(fp: string, content: string): Promise<void> {
+    const res = await fetch("/__local-file", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: fp, content }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Save failed (${res.status}): ${text}`);
+    }
+  }
 
   // AST parsing moved to handleChange with batch() for efficiency
 
@@ -442,6 +468,7 @@ function App() {
         if (res.ok) {
           content = await res.text();
           loadedFromQuery = true;
+          setFilePath(fileParam);
           document.title = fileParam.split("/").pop() || fileParam;
         } else {
           console.warn(`Failed to load file "${fileParam}": ${res.status} ${res.statusText}`);
@@ -499,26 +526,59 @@ function App() {
     onCleanup(() => document.removeEventListener("visibilitychange", handleVisibilityChange));
   });
 
-  // Save content to IndexedDB with debounce
+  // Save content: IDB first, then local file if in file mode
   createEffect(() => {
     const debounced = debouncedSource();
     if (!isInitialized()) return;
     if (!hasModified) return;
 
+    const currentRevision = ++saveRevision;
+    const fp = filePath();
+
     isSaving = true;
     setSaveStatus("saving");
+
+    // Always save to IDB first
     saveToIDB(debounced)
-      .then((timestamp) => {
+      .then(async (timestamp) => {
         lastSyncedTimestamp = timestamp;
-        hasModified = false;
-        isSaving = false;
-        setSaveStatus("saved");
-        setTimeout(() => setSaveStatus("idle"), 1000);
+
+        // If in file mode, also save to local file
+        if (fp) {
+          try {
+            await saveLocalFile(fp, debounced);
+          } catch (e) {
+            console.error("Failed to save local file:", e);
+            // Only update status if this is still the latest save
+            if (currentRevision === saveRevision) {
+              isSaving = false;
+              hasModified = false;
+              setSaveStatus("error");
+              clearTimeout(savedStatusTimer);
+              savedStatusTimer = window.setTimeout(() => setSaveStatus("idle"), 3000);
+            }
+            return;
+          }
+        }
+
+        // Only clear dirty if this is still the latest revision
+        if (currentRevision === saveRevision) {
+          hasModified = false;
+          setIsDirty(false);
+          isSaving = false;
+          setSaveStatus("saved");
+          clearTimeout(savedStatusTimer);
+          savedStatusTimer = window.setTimeout(() => setSaveStatus("idle"), 1000);
+        }
       })
       .catch((e) => {
         console.error("Failed to save to IndexedDB:", e);
-        isSaving = false;
-        setSaveStatus("idle");
+        if (currentRevision === saveRevision) {
+          isSaving = false;
+          setSaveStatus("error");
+          clearTimeout(savedStatusTimer);
+          savedStatusTimer = window.setTimeout(() => setSaveStatus("idle"), 3000);
+        }
       });
   });
 
@@ -543,6 +603,7 @@ function App() {
 
     // Update source and AST synchronously (bypass debounce for immediate feedback)
     hasModified = true;
+    setIsDirty(true);
     setSource(newSource);
     setAst(parse(newSource));
 
@@ -593,6 +654,7 @@ function App() {
 
       // Update source only (skip AST re-parse to prevent re-render and focus loss)
       hasModified = true;
+      setIsDirty(true);
       setSource(newSource);
       // Don't call setAst() here - AST will be updated on next text editor change
 
@@ -740,10 +802,15 @@ function App() {
     const file = input.files?.[0];
     if (!file) return;
 
+    // Clear file-mode to prevent overwriting the original ?file= path
+    setFilePath(null);
+    loadedFromQuery = false;
+
     const reader = new FileReader();
     reader.onload = () => {
       const content = reader.result as string;
       hasModified = true;
+      setIsDirty(true);
       batch(() => {
         setSource(content);
         setAst(parse(content));
@@ -760,6 +827,7 @@ function App() {
 
   const handleChange = (newSource: string) => {
     hasModified = true;
+    setIsDirty(true);
     // Update source immediately for responsive input
     setSource(newSource);
 
@@ -829,8 +897,13 @@ function App() {
                 </button>
               </div>
               <span class={saveStatusClass}>
-                {saveStatus() === "saving" && "Saving..."}
-                {saveStatus() === "saved" && "Saved"}
+                {fileName() && (saveStatus() === "idle" && isDirty()) ? (
+                  <span class="file-modified-dot">{"● "}</span>
+                ) : null}
+                {fileName() ? <span class="file-name">{fileName()}</span> : null}
+                {saveStatus() === "saving" && (fileName() ? " — Saving..." : "Saving...")}
+                {saveStatus() === "saved" && (fileName() ? " — Saved" : "Saved")}
+                {saveStatus() === "error" && (fileName() ? " — Save failed" : "Save failed")}
               </span>
             </div>
             <div class="toolbar-actions">
