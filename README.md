@@ -2,127 +2,87 @@
 
 CST-based incremental Markdown parser for JavaScript/MoonBit.
 
-A cross-platform (JS/WASM/native) Markdown compiler optimized for real-time editing with incremental parsing.
+> **Fork of [mizchi/markdown.mbt](https://github.com/mizchi/markdown.mbt)** with playground enhancements for local editing, preview, and Claude Code integration.
 
-## Features
+## Fork Features
 
-- **Fast**: Edit-position based incremental updates inspired by [CRDTs Go Brrr](https://josephg.com/blog/crdts-go-brrr/). Optimized for speed over edge-case correctness CommonMark 207/542
-- **Lossless CST**: Preserves all whitespace, markers, and formatting
-- **Incremental parsing**: Re-parses only changed blocks (up to 42x faster)
-- **GFM**: GitHub Flavored Markdown support (tables, task lists, strikethrough)
-- **Cross-platform**: Works on JS, WASM-GC, and native targets
-- **HTML rendering**: Built-in HTML renderer with remark-html compatible output
-- **mdast compatible**: AST follows [mdast](https://github.com/syntax-tree/mdast) specification
+This fork adds the following on top of upstream:
 
-----
+- **Playground with local file I/O** — Load local `.md` files via `?file=<path>`, auto-save with status indicator, sync on window focus
+- **Mermaid diagram rendering** — Fenced code blocks with `mermaid` language render as diagrams
+- **Syntax-highlighted editor** — Real-time markdown syntax coloring in the editor pane
+- **Dark theme** — Toggle with `localStorage` persistence
+- **Multiple view modes** — Split / editor-only / preview-only
+- **Preview-to-source navigation** — Click preview elements to jump to the corresponding source position
 
-## JavaScript API
+## Claude Code Integration
 
-```bash
-npm install @mizchi/markdown
+The `mdpreview` skill lets Claude Code open any local `.md` file in the playground browser preview.
+
+### Setup
+
+1. Copy the skill definition below to `~/.claude/skills/mdpreview/SKILL.md`
+2. Start the dev server: `pnpm vite`
+3. Use `/mdpreview <file>` or natural language prompts in Claude Code
+
+### Sample Prompts
+
+**English:**
+
+- "Preview README.md"
+- "Show me docs/markdown.md in the playground"
+- "Open my-notes.md in the browser"
+
+**Japanese:**
+
+- "README.md をプレビューして"
+- "docs/markdown.md をプレイグラウンドで表示して"
+- "my-notes.md をブラウザで開いて"
+
+### SKILL.md
+
+<details>
+<summary>Copy this to <code>~/.claude/skills/mdpreview/SKILL.md</code></summary>
+
+```markdown
+---
+name: mdpreview
+description: Open a markdown file in the markdown.mbt playground browser preview. Use when the user asks to show, preview, or view a markdown file.
+argument-hint: <file-path>
+allowed-tools: Bash, Glob, Read
+---
+
+# Open Markdown in Playground Preview
+
+Open the specified markdown file in the markdown.mbt playground running at `http://localhost:5173/`.
+
+## Prerequisites
+
+The dev server must be running:
+
+cd ~/ghq/github.com/y4mau/markdown.mbt && pnpm vite
+
+## Steps
+
+1. Resolve the file path to an absolute path
+2. Verify the file exists and has a markdown extension (`.md`, `.markdown`, `.txt`)
+3. Open in the browser:
+
+# WSL
+cmd.exe /c start "" "http://localhost:5173/?file=<absolute-path>"
+# Linux
+xdg-open "http://localhost:5173/?file=<absolute-path>"
+
+If `$ARGUMENTS` is empty, search the current directory for markdown files and ask the user which one to open.
+
+## Notes
+
+- The playground supports any file on the local filesystem (absolute paths)
+- The browser tab title updates to the filename
+- Extension allowlist on the server: `.md`, `.markdown`, `.txt`
 ```
 
-### Usage
-
-```javascript
-import { parse, toHtml, toMarkdown } from "@mizchi/markdown";
-
-// Parse to AST
-const ast = parse("# Hello\n\n**Bold** text");
-console.log(ast.children[0].type); // "heading"
-
-// Convert to HTML
-const html = toHtml("# Hello\n\n**Bold** text");
-// => "<h1>Hello</h1>\n<p><strong>Bold</strong> text</p>\n"
-
-// Normalize markdown
-const normalized = toMarkdown("# Hello\n\n\n\nWorld");
-// => "# Hello\n\nWorld\n"
-```
-
-### Incremental Parsing
-
-For real-time editing scenarios:
-
-```javascript
-import { createDocument, insertEdit } from "@mizchi/markdown";
-
-// Create document handle
-const doc = createDocument("# Hello");
-
-// Access AST, HTML, or Markdown
-console.log(doc.ast);        // Parsed AST
-console.log(doc.toHtml());   // "<h1>Hello</h1>\n"
-console.log(doc.toMarkdown()); // "# Hello\n"
-
-// Incremental update (faster than full re-parse)
-const edit = insertEdit(7, 6); // Insert 6 chars at position 7
-const newDoc = doc.update("# Hello World", edit);
-
-// Free resources when done
-doc.dispose();
-newDoc.dispose();
-```
-
-### TypeScript Support
-
-Full TypeScript definitions are included:
-
-```typescript
-import { parse, Document, Block, Inline } from "@mizchi/markdown";
-
-const ast: Document = parse("# Hello");
-const heading = ast.children[0] as HeadingBlock;
-console.log(heading.level); // 1
-```
-
-----
-
-## MoonBit API
-
-### Installation
-
-```bash
-moon add mizchi/markdown
-```
-
-### Usage
-
-```moonbit
-// Parse markdown
-let result = @markdown.parse("# Hello\n\nWorld")
-let doc = result.document
-
-// Serialize back (lossless)
-let output = @markdown.serialize(doc)
-
-// Render to HTML
-let html = @markdown.render_html(doc)
-
-// Or use convenience function
-let html = @markdown.md_to_html("# Hello\n\nWorld")
-```
-
-### Incremental Parsing
-
-```moonbit
-// Initial parse
-let result = @markdown.parse(source)
-let doc = result.document
-
-// Create edit info
-let edit = @markdown.EditInfo::replace(
-  change_start,    // Start position
-  old_length,      // Length of replaced text
-  new_length       // Length of new text
-)
-
-// Incremental update (reuses unchanged blocks)
-let inc_result = @markdown.parse_incremental(doc, old_source, new_source, edit)
-let new_doc = inc_result.document
-```
-
-----
+</details>
 
 ## Playground
 
@@ -132,7 +92,19 @@ moon build --target js
 pnpm exec vite
 ```
 
-## Performance
+## Upstream Features
+
+For detailed API documentation (JavaScript, MoonBit, TypeScript, incremental parsing), see the upstream repository: [mizchi/markdown.mbt](https://github.com/mizchi/markdown.mbt)
+
+Key highlights from upstream:
+
+- **Fast incremental parsing** — Re-parses only changed blocks (up to 42x faster)
+- **Lossless CST** — Preserves all whitespace, markers, and formatting
+- **GFM support** — Tables, task lists, strikethrough
+- **Cross-platform** — JS, WASM-GC, and native targets
+- **mdast compatible** — AST follows [mdast](https://github.com/syntax-tree/mdast) specification
+
+### Performance
 
 | Document | Full Parse | Incremental | Speedup |
 |----------|-----------|-------------|---------|
@@ -140,15 +112,13 @@ pnpm exec vite
 | 50 paragraphs | 327.99µs | 8.67µs | 37.8x |
 | 100 paragraphs | 651.14µs | 15.25µs | 42.7x |
 
+## CommonMark Compatibility
+
+This parser handles most common Markdown syntax correctly and works well for typical use cases like documentation, blog posts, and notes. Some edge cases are not fully CommonMark compliant — if you need strict compliance, consider [cmark.mbt](https://github.com/moonbit-community/cmark.mbt).
+
 ## Documentation
 
 See [docs/markdown.md](./docs/markdown.md) for detailed architecture and design.
-
-## CommonMark Compatibility
-
-This parser handles most common Markdown syntax correctly and works well for typical use cases like documentation, blog posts, and notes.
-
-However, some edge cases (deeply nested structures, unusual delimiter combinations) are not fully CommonMark compliant. If you need strict CommonMark compliance, consider using [cmark.mbt](https://github.com/moonbit-community/cmark.mbt) or other fully compliant parsers.
 
 ## License
 
