@@ -637,12 +637,20 @@ function App() {
     }
   });
 
+  // Suppress preview scroll when cursor change originated from preview click
+  let suppressPreviewScroll = false;
+
   // Sync preview scroll with cursor position (debounced to avoid excessive scrolling)
   let scrollTimer: number | undefined;
   createEffect(() => {
     const pos = cursorPosition();
     const currentAst = ast();
     if (!previewRef || !currentAst) return;
+
+    if (suppressPreviewScroll) {
+      suppressPreviewScroll = false;
+      return;
+    }
 
     // Debounce scroll updates to avoid jittery scrolling during fast typing
     clearTimeout(scrollTimer);
@@ -667,6 +675,38 @@ function App() {
     }, 150); // Small delay to let render complete first
   });
 
+
+  // Preview → source click handler
+  const handlePreviewClick = (e: MouseEvent) => {
+    let target = e.target as HTMLElement | null;
+    while (target && target !== previewRef) {
+      const span = target.getAttribute("data-span");
+      if (span) {
+        const start = parseInt(span.split("-")[0]!, 10);
+        if (!isNaN(start)) {
+          suppressPreviewScroll = true;
+          setCursorPosition(start);
+          if (editorMode() === "highlight" && editorRef) {
+            editorRef.setCursorPosition(start);
+            editorRef.focus();
+          } else if (simpleEditorRef) {
+            simpleEditorRef.setSelectionRange(start, start);
+            const text = simpleEditorRef.value;
+            let line = 0;
+            for (let i = 0; i < start && i < text.length; i++) {
+              if (text[i] === "\n") line++;
+            }
+            const totalLines = text.split("\n").length || 1;
+            const lineHeight = simpleEditorRef.scrollHeight / totalLines;
+            simpleEditorRef.scrollTop = Math.max(0, line * lineHeight - simpleEditorRef.clientHeight / 3);
+            simpleEditorRef.focus();
+          }
+        }
+        return;
+      }
+      target = target.parentElement;
+    }
+  };
 
   // File open handlers
   const handleFileOpen = () => {
@@ -820,7 +860,7 @@ function App() {
               </div>
             </div>
             {/* Preview panel - reactive rendering with Show */}
-            <div class="preview" ref={(el) => { previewRef = el; }}>
+            <div class="preview" ref={(el) => { previewRef = el; }} onClick={handlePreviewClick}>
               <Show when={ast}>
                 {() => {
                   const currentAst = ast();
