@@ -461,12 +461,14 @@ export function SyntaxHighlightEditor(props: SyntaxHighlightEditorProps) {
         getCursorPosition: () => editorRef?.selectionStart ?? 0,
         setCursorPosition: (pos: number) => {
           if (editorRef) {
-            editorRef.setSelectionRange(pos, pos);
             const line = getLineFromOffset(editorRef.value, pos);
             const totalLines = editorRef.value.split("\n").length || 1;
             const lineHeight = editorRef.scrollHeight / totalLines;
-            editorRef.scrollTop = Math.max(0, line * lineHeight - editorRef.clientHeight / 3);
-            editorRef.focus();
+            const targetTop = Math.max(0, line * lineHeight - editorRef.clientHeight / 3);
+            editorRef.setSelectionRange(pos, pos);
+            editorRef.focus({ preventScroll: true });
+            editorRef.scrollTop = targetTop;
+            syncScroll();
           }
         },
         getScrollTop: () => editorRef?.scrollTop ?? 0,

@@ -690,7 +690,6 @@ function App() {
             editorRef.setCursorPosition(start);
             editorRef.focus();
           } else if (simpleEditorRef) {
-            simpleEditorRef.setSelectionRange(start, start);
             const text = simpleEditorRef.value;
             let line = 0;
             for (let i = 0; i < start && i < text.length; i++) {
@@ -698,8 +697,10 @@ function App() {
             }
             const totalLines = text.split("\n").length || 1;
             const lineHeight = simpleEditorRef.scrollHeight / totalLines;
-            simpleEditorRef.scrollTop = Math.max(0, line * lineHeight - simpleEditorRef.clientHeight / 3);
-            simpleEditorRef.focus();
+            const targetTop = Math.max(0, line * lineHeight - simpleEditorRef.clientHeight / 3);
+            simpleEditorRef.setSelectionRange(start, start);
+            simpleEditorRef.focus({ preventScroll: true });
+            simpleEditorRef.scrollTop = targetTop;
           }
         }
         return;
