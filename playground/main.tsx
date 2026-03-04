@@ -508,19 +508,49 @@ function App() {
     });
   });
 
-  // Handle visibility change for tab sync
+  // Handle tab focus / visibility change for sync
   onMount(() => {
-    async function handleVisibilityChange() {
-      if (document.visibilityState !== "visible") return;
-      if (isSaving || hasModified || loadedFromQuery) return;
+    async function syncFromDisk() {
+      if (isSaving) return;
 
+      const fp = filePath();
+      if (fp) {
+        if (hasModified) return;
+        try {
+          const url = new URL("/__local-file", location.origin);
+          url.searchParams.set("path", fp);
+          const res = await fetch(url.href);
+          if (res.ok) {
+            const diskContent = await res.text();
+            if (diskContent !== source()) {
+              hasModified = false;
+              batch(() => {
+                setSource(diskContent);
+                setAst(parse(diskContent));
+              });
+              setSaveStatus("saved");
+              setSaveStatusText("Synced");
+              if (editorMode() === "highlight" && editorRef) {
+                editorRef.setValue(diskContent);
+              } else if (simpleEditorRef) {
+                simpleEditorRef.value = diskContent;
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Failed to sync from disk:", e);
+        }
+        return;
+      }
+
+      // IDB mode: sync from IndexedDB
+      if (hasModified) return;
       try {
         const idbData = await loadFromIDB();
         if (!idbData) return;
 
         if (idbData.timestamp > lastSyncedTimestamp) {
           setSource(idbData.content);
-          // AST will be parsed by debounce effect
           lastSyncedTimestamp = idbData.timestamp;
         }
       } catch (e) {
@@ -528,8 +558,19 @@ function App() {
       }
     }
 
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") syncFromDisk();
+    }
+    function handleFocus() {
+      syncFromDisk();
+    }
+
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    onCleanup(() => document.removeEventListener("visibilitychange", handleVisibilityChange));
+    window.addEventListener("focus", handleFocus);
+    onCleanup(() => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    });
   });
 
   // Save content: IDB first, then local file if in file mode
