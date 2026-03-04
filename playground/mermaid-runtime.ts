@@ -1,10 +1,16 @@
 ///| Shared Mermaid render service with lazy loading, serialized queue, and cache
 
-// Lazy-load Mermaid module (avoids ~2MB in initial bundle)
+// Lazy-load Mermaid module (avoids ~2MB in initial bundle).
+// Reset on failure so the next call retries the import.
 let mermaidPromise: Promise<typeof import("mermaid").default> | null = null;
 function getMermaid() {
   if (!mermaidPromise) {
-    mermaidPromise = import("mermaid").then((m) => m.default);
+    mermaidPromise = import("mermaid")
+      .then((m) => m.default)
+      .catch((e) => {
+        mermaidPromise = null; // Allow retry on next render
+        throw e;
+      });
   }
   return mermaidPromise;
 }
@@ -26,6 +32,7 @@ export function renderMermaid(code: string, dark: boolean): Promise<string> {
   // queue chain always resolves even if an individual render throws.
   return new Promise<string>((resolve, reject) => {
     renderQueue = renderQueue.then(async () => {
+      const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       try {
         const mermaid = await getMermaid();
         if (lastTheme !== theme) {
@@ -36,19 +43,25 @@ export function renderMermaid(code: string, dark: boolean): Promise<string> {
           });
           lastTheme = theme;
         }
-        const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const { svg } = await mermaid.render(id, code);
-        // Clean up orphan element created by mermaid.render()
-        document.getElementById(id)?.remove();
         if (cache.size >= MAX_CACHE) cache.delete(cache.keys().next().value!);
         cache.set(cacheKey, svg);
         resolve(svg);
       } catch (e) {
         reject(e);
         // Do NOT re-throw: keeps renderQueue resolving for next enqueued render
+      } finally {
+        // Always clean up orphan element created by mermaid.render()
+        document.getElementById(id)?.remove();
       }
     });
   });
+}
+
+/** Synchronous cache lookup — returns cached SVG or null */
+export function getCachedMermaid(code: string, dark: boolean): string | null {
+  const theme = dark ? "dark" : "default";
+  return cache.get(`${theme}|${code}`) ?? null;
 }
 
 /** Clear the render cache (useful on theme change if needed) */

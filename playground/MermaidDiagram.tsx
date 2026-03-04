@@ -1,63 +1,72 @@
-///| Mermaid diagram component with async rendering and token-based cancellation
+///| Mermaid diagram renderer — ref-based, no lifecycle hooks
+///| Works reliably regardless of Luna's component lifecycle timing
 
-import { createSignal, createEffect } from "@luna_ui/luna";
-import { renderMermaid } from "./mermaid-runtime";
+import { renderMermaid, getCachedMermaid } from "./mermaid-runtime";
 
+/**
+ * Returns a div that renders a mermaid diagram via ref callback.
+ * No signals, no createEffect, no onMount — avoids all Luna timing issues.
+ * Cache hit → instant SVG display. Cache miss → loading → async render.
+ */
 export function MermaidDiagram(props: {
   code: string;
   span: string;
-  isDark: () => boolean;
 }) {
-  const [svgHtml, setSvgHtml] = createSignal<string | null>(null);
-  const [error, setError] = createSignal<string | null>(null);
-  const [isRendering, setIsRendering] = createSignal(true);
-
-  let token = 0; // request token for stale-result cancellation
-
-  createEffect(() => {
-    const dark = props.isDark(); // tracks isDark signal — re-runs on theme change
-    // props.code is NOT reactive (plain string prop), so code changes are handled
-    // by remounting via key={span} in the handler (span changes when code changes)
-    const currentToken = ++token;
-
-    setIsRendering(true);
-    setError(null);
-    // Retain previous svgHtml to avoid flicker during re-render
-
-    renderMermaid(props.code, dark)
-      .then((svg) => {
-        if (currentToken !== token) return; // stale: discard
-        setSvgHtml(svg);
-        setIsRendering(false);
-      })
-      .catch((e) => {
-        if (currentToken !== token) return;
-        setError(e instanceof Error ? e.message : String(e));
-        setIsRendering(false);
-      });
-  });
-
   return (
-    <div class="mermaid-diagram-wrapper" data-span={props.span}>
-      {isRendering() && !svgHtml() && (
-        <div class="mermaid-loading">Rendering diagram…</div>
-      )}
-      {error() && (
-        <div class="mermaid-error">
-          <div class="mermaid-error-message">Mermaid Error: {error()}</div>
-          <pre class="mermaid-error-source">
-            <code>{props.code}</code>
-          </pre>
-        </div>
-      )}
-      {svgHtml() && !error() && (
-        <div
-          class="mermaid-rendered"
-          ref={(el) => {
-            if (el) el.innerHTML = svgHtml()!;
-          }}
-        />
-      )}
-    </div>
+    <div
+      class="mermaid-diagram-wrapper"
+      data-span={props.span}
+      ref={(el) => {
+        if (!el) return;
+        const dark = document.documentElement.getAttribute("data-theme") === "dark";
+
+        // Synchronous cache check — instant display, no flicker
+        const cached = getCachedMermaid(props.code, dark);
+        if (cached) {
+          setSvg(el, cached);
+          return;
+        }
+
+        // Cache miss: show loading, start async render
+        el.innerHTML = `<div class="mermaid-loading">Rendering diagram\u2026</div>`;
+        renderMermaid(props.code, dark)
+          .then((svg) => {
+            if (!el.isConnected) return;
+            setSvg(el, svg);
+          })
+          .catch((e) => {
+            if (!el.isConnected) return;
+            setError(el, e instanceof Error ? e.message : String(e), props.code);
+          });
+      }}
+    />
   );
+}
+
+function setSvg(el: HTMLElement, svg: string) {
+  const rendered = document.createElement("div");
+  rendered.className = "mermaid-rendered";
+  rendered.innerHTML = svg;
+  el.innerHTML = "";
+  el.appendChild(rendered);
+}
+
+function setError(el: HTMLElement, message: string, code: string) {
+  const errorDiv = document.createElement("div");
+  errorDiv.className = "mermaid-error";
+
+  const msgDiv = document.createElement("div");
+  msgDiv.className = "mermaid-error-message";
+  msgDiv.textContent = `Mermaid Error: ${message}`;
+
+  const pre = document.createElement("pre");
+  pre.className = "mermaid-error-source";
+  const codeEl = document.createElement("code");
+  codeEl.textContent = code;
+  pre.appendChild(codeEl);
+
+  errorDiv.appendChild(msgDiv);
+  errorDiv.appendChild(pre);
+  el.innerHTML = "";
+  el.appendChild(errorDiv);
 }
