@@ -881,15 +881,16 @@ function App() {
                 />
               </div>
             </div>
-            {/* Preview panel - reactive rendering with Show */}
-            <div class="preview" ref={(el) => { previewRef = el; }} onClick={handlePreviewClick}>
-              <Show when={ast}>
-                {() => {
-                  const currentAst = ast();
-                  return currentAst ? <MarkdownRenderer ast={currentAst} callbacks={rendererCallbacks} options={rendererOptions} /> : null;
-                }}
-              </Show>
-            </div>
+            {/* Preview panel - imperative re-render via createEffect + render */}
+            <div class="preview" ref={(el) => {
+              previewRef = el;
+              createEffect(() => {
+                const currentAst = ast();
+                if (!currentAst) return;
+                el.innerHTML = "";
+                render(el, <MarkdownRenderer ast={currentAst} callbacks={rendererCallbacks} options={rendererOptions} />);
+              });
+            }} onClick={handlePreviewClick}></div>
           </div>
         </div>
       )}
