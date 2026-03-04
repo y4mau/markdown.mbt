@@ -430,6 +430,7 @@ function App() {
         if (res.ok) {
           content = await res.text();
           loadedFromQuery = true;
+          document.title = fileParam.split("/").pop() || fileParam;
         } else {
           console.warn(`Failed to load file "${fileParam}": ${res.status} ${res.statusText}`);
         }
