@@ -127,41 +127,36 @@
       gap: 12px;
     }
 
+    .file-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+
     .save-status {
-      font-size: 12px;
+      font-size: 13px;
+      font-weight: 500;
       color: var(--text-secondary);
-      opacity: 0;
-      transition: opacity 0.2s;
-      min-width: 60px;
-      text-align: left;
+      white-space: nowrap;
     }
 
-    .save-status.saving,
-    .save-status.saved {
-      opacity: 1;
+    .save-status.saving {
+      color: var(--text-secondary);
     }
 
     .save-status.saved {
-      color: #22c55e;
+      color: #3fb950;
+      font-weight: 600;
+    }
+
+    .save-status.idle {
+      color: #d29922;
     }
 
     .save-status.error {
-      opacity: 1;
       color: #f85149;
-    }
-
-    /* File mode: always visible (show filename even at idle) */
-    .save-status.file-mode {
-      opacity: 1;
-    }
-
-    .save-status .file-name {
-      font-weight: 500;
-      color: var(--text-primary);
-    }
-
-    .save-status .file-modified-dot {
-      color: var(--accent-color);
+      font-weight: 600;
     }
 
     .theme-toggle {

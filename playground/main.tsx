@@ -331,13 +331,15 @@ function App() {
   const previewBtnClass = createMemo(() => `view-mode-btn ${viewMode() === "preview" ? "active" : ""}`);
   const highlightBtnClass = createMemo(() => `view-mode-btn ${editorMode() === "highlight" ? "active" : ""}`);
   const simpleBtnClass = createMemo(() => `view-mode-btn ${editorMode() === "simple" ? "active" : ""}`);
-  const saveStatusClass = createMemo(() => `save-status ${saveStatus()}${filePath() ? " file-mode" : ""}`);
+  const saveStatusClass = createMemo(() => `save-status ${saveStatus()}`);
+  const [saveStatusText, setSaveStatusText] = createSignal("");
 
   // Refs
   let editorRef: SyntaxHighlightEditorHandle | null = null;
   let simpleEditorRef: HTMLTextAreaElement | null = null;
   let previewRef: HTMLDivElement | null = null;
   let fileInputRef: HTMLInputElement | null = null;
+  let saveStatusRef: HTMLSpanElement | null = null;
 
   // Track if content has been modified since load
   let hasModified = false;
@@ -499,6 +501,10 @@ function App() {
     requestAnimationFrame(() => {
       setAst(parse(content));
       editorRef?.focus();
+      if (loadedFromQuery) {
+        setSaveStatus("saved");
+        setSaveStatusText("Synced");
+      }
     });
   });
 
@@ -537,6 +543,7 @@ function App() {
 
     isSaving = true;
     setSaveStatus("saving");
+    setSaveStatusText("Saving...");
 
     // Always save to IDB first
     saveToIDB(debounced)
@@ -554,8 +561,7 @@ function App() {
               isSaving = false;
               hasModified = false;
               setSaveStatus("error");
-              clearTimeout(savedStatusTimer);
-              savedStatusTimer = window.setTimeout(() => setSaveStatus("idle"), 3000);
+              setSaveStatusText("Save failed");
             }
             return;
           }
@@ -567,8 +573,14 @@ function App() {
           setIsDirty(false);
           isSaving = false;
           setSaveStatus("saved");
-          clearTimeout(savedStatusTimer);
-          savedStatusTimer = window.setTimeout(() => setSaveStatus("idle"), 1000);
+          setSaveStatusText(fp ? "Synced" : "Saved");
+          if (!fp) {
+            clearTimeout(savedStatusTimer);
+            savedStatusTimer = window.setTimeout(() => {
+              setSaveStatus("idle");
+              setSaveStatusText("");
+            }, 2000);
+          }
         }
       })
       .catch((e) => {
@@ -576,10 +588,24 @@ function App() {
         if (currentRevision === saveRevision) {
           isSaving = false;
           setSaveStatus("error");
+          setSaveStatusText("Save failed");
           clearTimeout(savedStatusTimer);
-          savedStatusTimer = window.setTimeout(() => setSaveStatus("idle"), 3000);
+          savedStatusTimer = window.setTimeout(() => {
+            setSaveStatus("idle");
+            setSaveStatusText("");
+          }, 3000);
         }
       });
+  });
+
+  // Sync save status text to DOM imperatively
+  createEffect(() => {
+    const text = saveStatusText();
+    const status = saveStatus();
+    if (saveStatusRef) {
+      saveStatusRef.textContent = text;
+      saveStatusRef.className = `save-status ${status}`;
+    }
   });
 
   // Track last rendered AST version for scroll synchronization
@@ -828,6 +854,10 @@ function App() {
   const handleChange = (newSource: string) => {
     hasModified = true;
     setIsDirty(true);
+    if (filePath()) {
+      setSaveStatus("idle");
+      setSaveStatusText("Modified");
+    }
     // Update source immediately for responsive input
     setSource(newSource);
 
@@ -896,15 +926,8 @@ function App() {
                   <Icon svg={SIMPLE_ICON} />
                 </button>
               </div>
-              <span class={saveStatusClass}>
-                {fileName() && (saveStatus() === "idle" && isDirty()) ? (
-                  <span class="file-modified-dot">{"● "}</span>
-                ) : null}
-                {fileName() ? <span class="file-name">{fileName()}</span> : null}
-                {saveStatus() === "saving" && (fileName() ? " — Saving..." : "Saving...")}
-                {saveStatus() === "saved" && (fileName() ? " — Saved" : "Saved")}
-                {saveStatus() === "error" && (fileName() ? " — Save failed" : "Save failed")}
-              </span>
+              {fileName() ? <span class="file-name">{fileName()}</span> : null}
+              <span class="save-status" ref={(el: HTMLSpanElement) => { saveStatusRef = el; }}></span>
             </div>
             <div class="toolbar-actions">
               <button onClick={handleFileOpen} class="github-link" title="Open file">
