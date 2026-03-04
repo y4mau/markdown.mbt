@@ -16,21 +16,17 @@ function localFilePlugin(): Plugin {
 
         const filePath = url.searchParams.get("path");
 
-        // Reject empty/whitespace path
-        if (!filePath || !filePath.trim()) {
+        // Reject empty/whitespace path or null bytes
+        if (!filePath || !filePath.trim() || filePath.includes("\0")) {
           res.statusCode = 400;
-          res.end("Missing path parameter");
+          res.end("Missing or invalid path parameter");
           return;
         }
 
-        // Reject absolute paths and null bytes
-        if (path.isAbsolute(filePath) || filePath.includes("\0")) {
-          res.statusCode = 403;
-          res.end("Forbidden");
-          return;
-        }
-
-        const resolved = path.resolve(projectRoot, filePath);
+        // Resolve: absolute paths used as-is, relative resolved from project root
+        const resolved = path.isAbsolute(filePath)
+          ? filePath
+          : path.resolve(projectRoot, filePath);
 
         // Check extension allowlist
         const ext = path.extname(resolved).toLowerCase();
@@ -40,26 +36,8 @@ function localFilePlugin(): Plugin {
           return;
         }
 
-        // Resolve real paths to block symlink escape
-        let realRoot: string;
-        let realResolved: string;
         try {
-          realRoot = fs.realpathSync(projectRoot);
-          realResolved = fs.realpathSync(resolved);
-        } catch {
-          res.statusCode = 404;
-          res.end("File not found");
-          return;
-        }
-
-        if (!realResolved.startsWith(realRoot + path.sep) && realResolved !== realRoot) {
-          res.statusCode = 403;
-          res.end("Forbidden: path traversal detected");
-          return;
-        }
-
-        try {
-          const content = fs.readFileSync(realResolved, "utf-8");
+          const content = fs.readFileSync(resolved, "utf-8");
           res.setHeader("Content-Type", "text/plain; charset=utf-8");
           res.setHeader("Cache-Control", "no-store");
           res.statusCode = 200;
