@@ -553,15 +553,73 @@
     /* Mermaid diagram */
     .mermaid-diagram-wrapper { margin: 16px 0; }
     .mermaid-rendered {
-      display: flex;
-      justify-content: center;
+      display: block;
+      position: relative;
+      overflow: hidden;
       padding: 16px;
       background: var(--bg-secondary);
       border: 1px solid var(--border-color);
       border-radius: 6px;
-      overflow-x: auto;
     }
-    .mermaid-rendered svg { max-width: 100%; height: auto; }
+    .mermaid-zoom-viewport {
+      width: 100%;
+      transform-origin: 0 0;
+      transition: transform 0.1s ease-out;
+      line-height: 0;
+    }
+    .mermaid-zoom-viewport svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+    .mermaid-zoom-viewport.panning { transition: none; }
+    .mermaid-rendered.zoomed { cursor: grab; }
+    .mermaid-rendered.zoomed .mermaid-zoom-viewport.panning { cursor: grabbing; }
+    .mermaid-rendered.zoomed.panning { cursor: grabbing; }
+    .mermaid-zoom-controls {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      z-index: 10;
+    }
+    .mermaid-rendered:hover .mermaid-zoom-controls,
+    .mermaid-rendered:focus-within .mermaid-zoom-controls {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .mermaid-rendered.zoomed .mermaid-zoom-controls {
+      opacity: 0.7;
+      pointer-events: auto;
+    }
+    .mermaid-zoom-btn {
+      min-width: 28px;
+      height: 24px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 13px;
+      user-select: none;
+    }
+    .mermaid-zoom-btn:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+    .mermaid-zoom-btn:focus-visible {
+      outline: 2px solid var(--text-secondary);
+      outline-offset: -2px;
+    }
+    .mermaid-zoom-label {
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      min-width: 40px;
+      text-align: center;
+      color: var(--text-secondary);
+      user-select: none;
+    }
     .mermaid-loading {
       display: flex;
       align-items: center;
