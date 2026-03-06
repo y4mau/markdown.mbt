@@ -348,7 +348,7 @@ fn InlineParser::parse_until_closing_marker(
 ) -> Array[Inline] {
   let children : Array[Inline] = []
   let text_buf = StringBuilder::new()
-  let text_start = self.scanner.pos
+  let mut text_start = self.scanner.pos
   while not(self.scanner.is_eof()) {
     // Check for closing marker
     let closing_count = self.scanner.count_char(marker_char)
@@ -384,11 +384,14 @@ fn InlineParser::parse_until_closing_marker(
               span=Span::new(text_start, self.scanner.pos),
             ),
           )
+          text_buf.reset()
+          text_start = self.scanner.pos
         }
         let nested_start = self.scanner.pos
         match self.try_parse_code_span(nested_start) {
           Some(code) => {
             children.push(code)
+            text_start = self.scanner.pos
             continue
           }
           None => ()
@@ -402,11 +405,14 @@ fn InlineParser::parse_until_closing_marker(
               span=Span::new(text_start, self.scanner.pos),
             ),
           )
+          text_buf.reset()
+          text_start = self.scanner.pos
         }
         let nested_start = self.scanner.pos
         match self.try_parse_link(nested_start) {
           Some(link) => {
             children.push(link)
+            text_start = self.scanner.pos
             continue
           }
           None => ()
