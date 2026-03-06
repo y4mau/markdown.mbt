@@ -45,7 +45,7 @@ fn main() {
 ## Markdown Support
 
 - **Bold** and *italic* text
-- [Links](https://github.com/mizchi/markdown.mbt)
+- [Links](https://github.com/y4mau/markdown.mbt)
 - \`inline code\`
 - > Blockquotes
 
@@ -94,7 +94,7 @@ Click the checkboxes below - they update the source in real-time!
 
 ---
 
-Source: [github.com/mizchi/markdown.mbt](https://github.com/mizchi/markdown.mbt)
+Source: [github.com/y4mau/markdown.mbt](https://github.com/y4mau/markdown.mbt)
 `;
 
 // IndexedDB helpers
@@ -988,7 +988,7 @@ function App() {
                 {isDark() ? "☀️" : "🌙"}
               </button>
               <a
-                href="https://github.com/mizchi/markdown.mbt"
+                href="https://github.com/y4mau/markdown.mbt"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="github-link"
