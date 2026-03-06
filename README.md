@@ -17,6 +17,12 @@ This fork adds the following on top of upstream:
 
 ## Quick Setup
 
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18+)
+- [pnpm](https://pnpm.io/) — `npm install -g pnpm`
+- [MoonBit](https://www.moonbitlang.com/download/) — `curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash`
+
 ### Bash (Linux / WSL / macOS)
 
 ```bash
