@@ -1,6 +1,34 @@
 ///| Scanner utilities for markdown parsing
 
 ///|
+/// Normalize line endings: \r\n -> \n, lone \r -> \n (per CommonMark spec)
+fn normalize_line_endings(source : String) -> String {
+  // Fast path: no \r means nothing to normalize
+  if not(source.contains("\r")) {
+    return source
+  }
+  let buf = StringBuilder::new()
+  let chars = source.to_array()
+  let len = chars.length()
+  let mut i = 0
+  while i < len {
+    if chars[i] == '\r' {
+      buf.write_char('\n')
+      // Skip \n in \r\n pair
+      if i + 1 < len && chars[i + 1] == '\n' {
+        i += 2
+      } else {
+        i += 1
+      }
+    } else {
+      buf.write_char(chars[i])
+      i += 1
+    }
+  }
+  buf.to_string()
+}
+
+///|
 /// Scanner state - uses Array[Char] for O(1) character access
 /// Handles Unicode correctly by tracking UTF-16 offsets for non-BMP characters
 pub(all) struct Scanner {
@@ -20,6 +48,8 @@ fn is_non_bmp(c : Char) -> Bool {
 ///|
 /// Create a new scanner
 pub fn Scanner::new(source : String) -> Scanner {
+  // Normalize line endings: \r\n -> \n, lone \r -> \n (per CommonMark spec)
+  let source = normalize_line_endings(source)
   let chars = source.to_array()
   let len = chars.length()
 
