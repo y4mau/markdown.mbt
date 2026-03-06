@@ -1,6 +1,7 @@
 import { createEffect, onMount, createSignal, createMemo, For } from "@luna_ui/luna";
 // @ts-ignore - no type declarations for syntree_api.js
 import { highlight } from "../js/syntree_api.js";
+import { handlePasteAsLink } from "./paste-url-as-link";
 
 interface SyntaxHighlightEditorProps {
   value: () => string;  // Always accessor for fine-grained reactivity
@@ -762,6 +763,15 @@ export function SyntaxHighlightEditor(props: SyntaxHighlightEditorProps) {
     }
   };
 
+  const handlePaste = (e: ClipboardEvent) => {
+    const target = e.target as HTMLTextAreaElement;
+    if (handlePasteAsLink(e, target)) {
+      isUserInput = true;
+      props.onChange(target.value);
+      props.onCursorChange?.(target.selectionStart);
+    }
+  };
+
   const handleCursorUpdate = (e: Event) => {
     const target = e.target as HTMLTextAreaElement;
     props.onCursorChange?.(target.selectionStart);
@@ -791,6 +801,7 @@ export function SyntaxHighlightEditor(props: SyntaxHighlightEditorProps) {
             onInput={handleInput}
             onScroll={syncScroll}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             onKeyUp={handleCursorUpdate}
             onClick={handleCursorUpdate}
             spellcheck={false}

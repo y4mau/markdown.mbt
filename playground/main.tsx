@@ -4,6 +4,7 @@ import type { Root } from "mdast";
 import { MarkdownRenderer, RawHtml, sanitizeSvg, type RendererCallbacks, type RendererOptions } from "./ast-renderer";
 import { SyntaxHighlightEditor, type SyntaxHighlightEditorHandle } from "./SyntaxHighlightEditor";
 import { MoonlightEditor } from "./MoonlightEditor";
+import { handlePasteAsLink } from "./paste-url-as-link";
 import { MermaidDiagram } from "./MermaidDiagram";
 
 // IndexedDB for content (reliable async storage)
@@ -244,11 +245,20 @@ function SimpleEditor(props: {
     props.onCursorChange?.(target.selectionStart);
   };
 
+  const handlePaste = (e: ClipboardEvent) => {
+    const target = e.target as HTMLTextAreaElement;
+    if (handlePasteAsLink(e, target)) {
+      props.onChange(target.value);
+      props.onCursorChange?.(target.selectionStart);
+    }
+  };
+
   return (
     <textarea
       ref={setupTextarea}
       class="simple-editor"
       onInput={handleInput}
+      onPaste={handlePaste}
       onKeyUp={handleCursorUpdate}
       onClick={handleCursorUpdate}
       spellcheck={false}
