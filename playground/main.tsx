@@ -852,6 +852,10 @@ function App() {
 
   // Preview → source click handler
   const handlePreviewClick = (e: MouseEvent) => {
+    // If user selected text in preview, don't steal focus to editor
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) return;
+
     let target = e.target as HTMLElement | null;
     while (target && target !== previewRef) {
       const span = target.getAttribute("data-span");
