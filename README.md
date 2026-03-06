@@ -9,6 +9,7 @@ CST-based incremental Markdown parser for JavaScript/MoonBit.
 This fork adds the following on top of upstream:
 
 - **Playground with local file I/O** — Load local `.md` files via `?file=<path>`, auto-save with status indicator, sync on window focus
+- **Copy-to-clipboard** — Copy entire document from toolbar, per-code-block copy, and per-heading section copy (hover heading to reveal)
 - **Mermaid diagram rendering** — Fenced code blocks with `mermaid` language render as diagrams
 - **Syntax-highlighted editor** — Real-time markdown syntax coloring in the editor pane
 - **Dark theme** — Toggle with `localStorage` persistence
