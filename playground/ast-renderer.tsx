@@ -591,6 +591,24 @@ function computeHeadingSections(children: RootContent[]): Map<string, HeadingSec
   return result;
 }
 
+// Render a block or a <details> group, advancing the index as needed
+// Returns [rendered element or null, next index to process]
+function renderBlockOrDetails(
+  children: RootContent[],
+  i: number,
+  callbacks: RendererCallbacks | undefined,
+  options: RendererOptions | undefined,
+): [JSX.Element | null, number] {
+  const block = children[i]!;
+  if (block.type === "html" && /^<details[\s>]/i.test(block.value.trim())) {
+    const endIdx = findDetailsEnd(children, i);
+    if (endIdx !== -1) {
+      return [renderDetailsGroup(children, i, endIdx, i, callbacks, options), endIdx];
+    }
+  }
+  return [renderBlock(block, i, callbacks, options), i + 1];
+}
+
 // Group blocks into heading sections for section-level highlighting
 function groupIntoSections(
   children: RootContent[],
@@ -599,7 +617,14 @@ function groupIntoSections(
   options: RendererOptions | undefined,
 ): JSX.Element[] {
   if (!headingSections || headingSections.size === 0) {
-    return children.map((block, i) => renderBlock(block, i, callbacks, options)).filter(Boolean) as JSX.Element[];
+    const result: JSX.Element[] = [];
+    let i = 0;
+    while (i < children.length) {
+      const [rendered, nextI] = renderBlockOrDetails(children, i, callbacks, options);
+      if (rendered) result.push(rendered);
+      i = nextI;
+    }
+    return result;
   }
 
   const result: JSX.Element[] = [];
@@ -624,7 +649,8 @@ function groupIntoSections(
     }
   };
 
-  for (let i = 0; i < children.length; i++) {
+  let i = 0;
+  while (i < children.length) {
     const block = children[i]!;
     if (block.type === "heading") {
       const span = getSpan(block);
@@ -633,12 +659,97 @@ function groupIntoSections(
         currentHeadingSpan = span;
       }
     }
-    const rendered = renderBlock(block, i, callbacks, options);
+    const [rendered, nextI] = renderBlockOrDetails(children, i, callbacks, options);
     if (rendered) currentSection.push(rendered);
+    i = nextI;
   }
   flushSection();
 
   return result;
+}
+
+// Detect <details> opening html block and find matching </details>
+// Returns the index past the closing </details>, or -1 if not found
+function findDetailsEnd(children: RootContent[], startIdx: number): number {
+  let depth = 1;
+  for (let j = startIdx + 1; j < children.length; j++) {
+    const next = children[j]!;
+    if (next.type === "html") {
+      const trimmed = next.value.trim();
+      if (/^<details[\s>]/i.test(trimmed)) depth++;
+      if (/<\/details\s*>/i.test(trimmed)) depth--;
+      if (depth === 0) return j + 1;
+    }
+  }
+  return -1;
+}
+
+// Helper: render raw HTML as a <summary> element (must be direct child of <details>)
+function RawSummary({ html, ...props }: { html: string } & Record<string, unknown>) {
+  return (
+    <summary
+      {...props}
+      ref={(el: HTMLElement) => {
+        if (el) el.innerHTML = html;
+      }}
+    />
+  );
+}
+
+// Render a <details> group: opening html + inner blocks + closing html
+function renderDetailsGroup(
+  children: RootContent[],
+  startIdx: number,
+  endIdx: number,
+  keyPrefix: string | number,
+  callbacks?: RendererCallbacks,
+  options?: RendererOptions,
+): JSX.Element {
+  const openBlock = children[startIdx]!;
+  const openHtml = (openBlock as { value: string }).value;
+
+  // Extract <summary>...</summary> from the opening html
+  const summaryMatch = openHtml.match(/<summary[^>]*>([\s\S]*?)<\/summary>/i);
+
+  // Check for open attribute on <details>
+  const isOpen = /<details[^>]*\bopen\b/i.test(openHtml);
+
+  // Inner blocks (between opening and closing html)
+  const innerBlocks = children.slice(startIdx + 1, endIdx - 1);
+
+  // Build the data-span covering the entire details range
+  const startOffset = openBlock.position?.start?.offset ?? 0;
+  const endOffset = children[endIdx - 1]!.position?.end?.offset ?? 0;
+  const span = `${startOffset}-${endOffset}`;
+
+  return (
+    <details key={keyPrefix} data-span={span} open={isOpen || undefined}>
+      {summaryMatch ? (
+        <RawSummary html={summaryMatch[1]!} />
+      ) : null}
+      {(() => {
+        const rendered: JSX.Element[] = [];
+        let idx = 0;
+        while (idx < innerBlocks.length) {
+          const block = innerBlocks[idx]!;
+          if (block.type === "html" && /^<details[\s>]/i.test(block.value.trim())) {
+            // Adjust indices relative to innerBlocks array
+            const endIdx = findDetailsEnd(innerBlocks, idx);
+            if (endIdx !== -1) {
+              const el = renderDetailsGroup(innerBlocks, idx, endIdx, `${keyPrefix}-inner-${idx}`, callbacks, options);
+              rendered.push(el);
+              idx = endIdx;
+              continue;
+            }
+          }
+          const el = renderBlock(block, `${keyPrefix}-inner-${idx}`, callbacks, options);
+          if (el) rendered.push(el);
+          idx++;
+        }
+        return rendered;
+      })()}
+    </details>
+  );
 }
 
 // Document renderer component
