@@ -1442,10 +1442,34 @@ fn BlockParser::parse_paragraph(self : BlockParser, start : Int) -> Block? {
       _ => ()
     }
     self.scanner.restore(saved)
+    let line = self.scanner.read_line()
+
+    // GFM table interrupt: if this line could be a table header,
+    // check if the next line is a valid separator row
+    if line.contains("|") && char_is(self.scanner.peek(), '\n') {
+      let lookahead_pos = self.scanner.pos
+      self.scanner.advance(1) // skip \n
+      let next_line = self.scanner.read_line()
+      self.scanner.restore(lookahead_pos) // always restore
+      if next_line.contains("|") && next_line.contains("-") {
+        let alignments = parse_table_alignments(next_line)
+        if not(alignments.is_empty()) {
+          let header_cells = split_table_cells(line)
+          let header_count = header_cells
+            .filter(fn(c) { not(c.trim(chars=" \t\n\r").is_empty()) })
+            .length()
+          if header_count == alignments.length() {
+            // Valid table start - break paragraph so main loop parses table
+            self.scanner.restore(saved)
+            break
+          }
+        }
+      }
+    }
+
     if not(first) {
       content_buf.write_char('\n')
     }
-    let line = self.scanner.read_line()
     content_buf.write_string(line)
     first = false
     if char_is(self.scanner.peek(), '\n') {
