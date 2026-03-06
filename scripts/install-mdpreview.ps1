@@ -4,7 +4,7 @@
 #   .\scripts\install-mdpreview.ps1
 #
 # What it does:
-#   1. Symlinks .claude\skills\mdpreview into ~\.claude\skills\mdpreview
+#   1. Copies .claude\skills\mdpreview into ~\.claude\skills\mdpreview
 #   2. Appends the mdpreview function to your PowerShell profile (if not already present)
 
 Set-StrictMode -Version Latest
@@ -16,30 +16,16 @@ $SkillDst = Join-Path $HOME '.claude\skills\mdpreview'
 
 # --- 1. Install Claude Code skill ---
 if (Test-Path $SkillDst) {
-    $item = Get-Item $SkillDst -Force
-    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
-        $currentTarget = (Get-Item $SkillDst).Target
-        if ($currentTarget -eq $SkillSrc) {
-            Write-Host "Skill already linked: $SkillDst -> $SkillSrc"
-        } else {
-            Remove-Item $SkillDst -Force
-            New-Item -ItemType SymbolicLink -Path $SkillDst -Target $SkillSrc | Out-Null
-            Write-Host "Updated symlink: $SkillDst -> $SkillSrc"
-        }
-    } else {
-        Write-Host "Warning: $SkillDst already exists as a directory."
-        Write-Host "Back it up and re-run, or remove it manually:"
-        Write-Host "  Remove-Item -Recurse -Force '$SkillDst'"
-        exit 1
-    }
-} else {
-    $parentDir = Split-Path -Parent $SkillDst
-    if (-not (Test-Path $parentDir)) {
-        New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
-    }
-    New-Item -ItemType SymbolicLink -Path $SkillDst -Target $SkillSrc | Out-Null
-    Write-Host "Linked skill: $SkillDst -> $SkillSrc"
+    # Remove existing and copy fresh
+    Remove-Item -Recurse -Force $SkillDst
 }
+
+$parentDir = Split-Path -Parent $SkillDst
+if (-not (Test-Path $parentDir)) {
+    New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+}
+Copy-Item -Recurse -Force $SkillSrc $SkillDst
+Write-Host "Installed skill: $SkillSrc -> $SkillDst"
 
 # --- 2. Install PowerShell function ---
 $ProfilePath = $PROFILE.CurrentUserCurrentHost
