@@ -981,7 +981,7 @@ function App() {
               <span class="save-status" ref={(el: HTMLSpanElement) => { saveStatusRef = el; }}></span>
             </div>
             <div class="toolbar-actions">
-              <button onClick={handleFileOpen} class="github-link" title="Open file">
+              <button onClick={handleFileOpen} class="theme-toggle" title="Open file">
                 <Icon svg={FILE_OPEN_ICON} />
               </button>
               <button onClick={toggleDark} class="theme-toggle" title="Toggle dark mode">
