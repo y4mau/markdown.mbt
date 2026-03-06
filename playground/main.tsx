@@ -1017,15 +1017,9 @@ function App() {
                   });
                 }}
               />
-              <a
-                href="https://github.com/y4mau/markdown.mbt"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="github-link"
-                title="View on GitHub"
-              >
+              <button onClick={() => window.open("https://github.com/y4mau/markdown.mbt", "_blank", "noopener,noreferrer")} class="theme-toggle" title="View on GitHub">
                 <Icon svg={GITHUB_ICON} />
-              </a>
+              </button>
             </div>
             <input
               type="file"
