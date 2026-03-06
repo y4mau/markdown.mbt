@@ -9,12 +9,14 @@ CST-based incremental Markdown parser for JavaScript/MoonBit.
 This fork adds the following on top of upstream:
 
 - **Playground with local file I/O** — Load local `.md` files via `?file=<path>`, auto-save with status indicator, sync on window focus
-- **Copy-to-clipboard** — Copy entire document from toolbar, per-code-block copy, and per-heading section copy (hover heading to reveal)
-- **Mermaid diagram rendering** — Fenced code blocks with `mermaid` language render as diagrams
+- **Copy-to-clipboard** — Copy entire document from toolbar, per-code-block copy, and per-heading section copy (hover heading to reveal, section highlights on hover)
+- **Mermaid diagram rendering** — Fenced code blocks with `mermaid` language render as diagrams with zoom/pan controls
+- **Details/summary toggle** — HTML `<details>` / `<summary>` blocks render as collapsible sections
 - **Syntax-highlighted editor** — Real-time markdown syntax coloring in the editor pane
-- **Dark theme** — Toggle with `localStorage` persistence
+- **Dark/light theme** — SVG icon toggle with `localStorage` persistence and optimized contrast for both themes
 - **Multiple view modes** — Split / editor-only / preview-only
-- **Preview-to-source navigation** — Click preview elements to jump to the corresponding source position
+- **Preview-to-source navigation** — Click preview elements to jump to the corresponding source position; text selection in preview is preserved
+- **Paste URL as link** — Select text and paste a URL to create a `[text](url)` markdown link
 
 ## Quick Setup
 
