@@ -79,10 +79,20 @@ export interface CodeBlockHandler {
   render: (code: string, span: string, key?: string | number, mode?: string) => JSX.Element | null;
 }
 
+// Section range for a heading (used internally)
+interface HeadingSectionRange {
+  sectionStart: number;
+  sectionEnd: number;
+}
+
 // Renderer options for customizing rendering behavior
 export interface RendererOptions {
   // Custom handlers for specific code block languages
   codeBlockHandlers?: Record<string, CodeBlockHandler>;
+  // Raw source text for copy-to-clipboard features
+  sourceText?: string;
+  // Internal: heading section ranges keyed by span string
+  _headingSections?: Map<string, HeadingSectionRange>;
 }
 
 // Helper component to render raw HTML using ref callback (exported for custom handlers)
@@ -97,30 +107,92 @@ export function RawHtml({ html, ...props }: { html: string } & Record<string, un
   );
 }
 
+// Shared copy button SVG content
+const COPY_BTN_SVG =
+  '<svg class="icon-copy" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>' +
+  '<svg class="icon-check" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+
+// Generic copy button handler
+function handleCopyClick(text: string, e: MouseEvent) {
+  e.stopPropagation();
+  navigator.clipboard.writeText(text);
+  const btn = e.currentTarget as HTMLElement;
+  btn.classList.add("copied");
+  setTimeout(() => btn.classList.remove("copied"), 2000);
+}
+
 // Code block wrapper with copy button
 function CodeBlock({ code, children }: { code: string; children: JSX.Element }) {
-  const handleCopy = (e: MouseEvent) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(code);
-    const btn = e.currentTarget as HTMLElement;
-    btn.classList.add("copied");
-    setTimeout(() => btn.classList.remove("copied"), 2000);
-  };
   return (
     <div class="code-block-wrapper">
       {children}
       <button
         class="copy-btn"
         onMouseDown={(e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); }}
-        onClick={handleCopy}
+        onClick={(e: MouseEvent) => handleCopyClick(code, e)}
         title="Copy code"
-        ref={(el) => {
-          if (el) el.innerHTML =
-            '<svg class="icon-copy" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>' +
-            '<svg class="icon-check" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
-        }}
+        ref={(el) => { if (el) el.innerHTML = COPY_BTN_SVG; }}
       />
     </div>
+  );
+}
+
+// Heading with section copy button
+function HeadingWithCopy({
+  tag: Tag,
+  span,
+  sourceText,
+  sectionStart,
+  sectionEnd,
+  children,
+  key,
+}: {
+  tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+  span: string;
+  sourceText: string;
+  sectionStart: number;
+  sectionEnd: number;
+  children: (JSX.Element | string | null)[];
+  key?: string | number;
+}) {
+  let headingRef: HTMLElement | null = null;
+  const sectionText = () => sourceText.slice(sectionStart, sectionEnd);
+
+  const highlightSection = () => {
+    const body = headingRef?.closest(".markdown-body");
+    if (!body) return;
+    body.querySelectorAll("[data-span]").forEach((el) => {
+      const s = el.getAttribute("data-span")!;
+      const [startStr, endStr] = s.split("-");
+      const elStart = parseInt(startStr!, 10);
+      const elEnd = parseInt(endStr!, 10);
+      if (elStart >= sectionStart && elEnd <= sectionEnd) {
+        el.classList.add("section-highlight");
+      }
+    });
+  };
+
+  const clearHighlight = () => {
+    const body = headingRef?.closest(".markdown-body");
+    if (!body) return;
+    body.querySelectorAll(".section-highlight").forEach((el) => {
+      el.classList.remove("section-highlight");
+    });
+  };
+
+  return (
+    <Tag key={key} data-span={span} class="heading-with-copy" ref={(el: HTMLElement) => { headingRef = el; }}>
+      {children}
+      <button
+        class="section-copy-btn"
+        onMouseDown={(e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); }}
+        onClick={(e: MouseEvent) => handleCopyClick(sectionText(), e)}
+        onMouseEnter={highlightSection}
+        onMouseLeave={clearHighlight}
+        title="Copy section"
+        ref={(el) => { if (el) el.innerHTML = COPY_BTN_SVG; }}
+      />
+    </Tag>
   );
 }
 
@@ -195,8 +267,24 @@ export function renderBlock(
 
     case "heading": {
       const Tag = `h${block.depth}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+      const span = getSpan(block);
+      const sectionRange = options?._headingSections?.get(span);
+      if (sectionRange && options?.sourceText) {
+        return (
+          <HeadingWithCopy
+            key={key}
+            tag={Tag}
+            span={span}
+            sourceText={options.sourceText}
+            sectionStart={sectionRange.sectionStart}
+            sectionEnd={sectionRange.sectionEnd}
+          >
+            {block.children.map((child, i) => renderInline(child, i)).filter(Boolean)}
+          </HeadingWithCopy>
+        );
+      }
       return (
-        <Tag key={key} data-span={getSpan(block)}>
+        <Tag key={key} data-span={span}>
           {block.children.map((child, i) => renderInline(child, i)).filter(Boolean)}
         </Tag>
       );
@@ -487,6 +575,36 @@ export function renderInline(inline: PhrasingContent, key?: string | number): JS
   }
 }
 
+// Compute section range for each heading: from heading start to next same-or-higher level heading (or document end)
+function computeHeadingSections(children: RootContent[]): Map<string, HeadingSectionRange> {
+  const headings: { span: string; depth: number; startOffset: number }[] = [];
+  for (const block of children) {
+    if (block.type === "heading") {
+      const start = block.position?.start?.offset ?? 0;
+      const end = block.position?.end?.offset ?? 0;
+      headings.push({ span: `${start}-${end}`, depth: block.depth, startOffset: start });
+    }
+  }
+
+  const lastBlock = children[children.length - 1];
+  const docEnd = lastBlock?.position?.end?.offset ?? 0;
+
+  const result = new Map<string, HeadingSectionRange>();
+  for (let i = 0; i < headings.length; i++) {
+    const h = headings[i]!;
+    let sectionEnd = docEnd;
+    // Find next heading with same or higher (lower number) level
+    for (let j = i + 1; j < headings.length; j++) {
+      if (headings[j]!.depth <= h.depth) {
+        sectionEnd = headings[j]!.startOffset;
+        break;
+      }
+    }
+    result.set(h.span, { sectionStart: h.startOffset, sectionEnd });
+  }
+  return result;
+}
+
 // Document renderer component
 export function MarkdownRenderer({
   ast,
@@ -498,9 +616,16 @@ export function MarkdownRenderer({
   options?: RendererOptions;
 }) {
   if (!ast) return null;
+
+  const sourceText = options?.sourceText;
+
+  const optionsWithSections = sourceText
+    ? { ...options, _headingSections: computeHeadingSections(ast.children) }
+    : options;
+
   return (
     <div class="markdown-body" data-span={getSpan(ast)}>
-      {ast.children.map((block, i) => renderBlock(block, i, callbacks, options)).filter(Boolean)}
+      {ast.children.map((block, i) => renderBlock(block, i, callbacks, optionsWithSections)).filter(Boolean)}
     </div>
   );
 }

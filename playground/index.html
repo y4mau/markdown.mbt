@@ -454,6 +454,61 @@
       padding-bottom: 50vh;
     }
 
+    /* Toolbar Copy All button */
+    .toolbar-copy-all.copied {
+      color: #3fb950 !important;
+      border-color: #3fb950;
+    }
+
+    /* Section copy button inside headings */
+    .preview .heading-with-copy {
+      position: relative;
+      display: flex;
+      align-items: baseline;
+    }
+
+    .preview .heading-with-copy .section-copy-btn {
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 6px;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+    }
+
+    .preview .heading-with-copy:hover .section-copy-btn {
+      opacity: 1;
+    }
+
+    .preview .heading-with-copy .section-copy-btn:hover {
+      background: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .preview .heading-with-copy .section-copy-btn .icon-check { display: none; }
+    .preview .heading-with-copy .section-copy-btn.copied {
+      opacity: 1;
+      color: #3fb950;
+    }
+    .preview .heading-with-copy .section-copy-btn.copied .icon-copy { display: none; }
+    .preview .heading-with-copy .section-copy-btn.copied .icon-check { display: inline; }
+
+    /* Highlight section range on copy button hover */
+    .preview .section-highlight {
+      background: var(--code-bg);
+      border-radius: 4px;
+    }
+
     .preview h1, .preview h2, .preview h3, .preview h4, .preview h5, .preview h6 {
       margin-top: 24px;
       margin-bottom: 16px;

@@ -303,6 +303,11 @@ const SIMPLE_ICON = `<svg viewBox="0 0 20 20" width="18" height="18" fill="curre
   <line x1="5" y1="15" x2="10" y2="15" stroke="currentColor" stroke-width="1" opacity="0.5"/>
 </svg>`;
 
+const COPY_ALL_ICON = `<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5">
+  <rect x="6" y="6" width="11" height="12" rx="1"/>
+  <path d="M4 14V4a1 1 0 0 1 1-1h8"/>
+</svg>`;
+
 const FILE_OPEN_ICON = `<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5">
   <path d="M3 17V3a1 1 0 0 1 1-1h5l2 2h5a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>
   <path d="M8 10v4m-2-2h4" stroke-linecap="round"/>
@@ -749,7 +754,7 @@ function App() {
     onTaskToggle: handleTaskToggle,
   };
 
-  // Options for custom code block rendering
+  // Options for custom code block rendering (sourceText added reactively in render effect)
   const rendererOptions: RendererOptions = {
     codeBlockHandlers: {
       // Render ```svg or ```svg:preview blocks as inline SVG
@@ -981,6 +986,18 @@ function App() {
               <span class="save-status" ref={(el: HTMLSpanElement) => { saveStatusRef = el; }}></span>
             </div>
             <div class="toolbar-actions">
+              <button
+                class="toolbar-copy-all theme-toggle"
+                title="Copy all markdown"
+                onClick={(e: MouseEvent) => {
+                  navigator.clipboard.writeText(source());
+                  const btn = e.currentTarget as HTMLElement;
+                  btn.classList.add("copied");
+                  setTimeout(() => btn.classList.remove("copied"), 2000);
+                }}
+              >
+                <Icon svg={COPY_ALL_ICON} />
+              </button>
               <button onClick={handleFileOpen} class="theme-toggle" title="Open file">
                 <Icon svg={FILE_OPEN_ICON} />
               </button>
@@ -1035,7 +1052,8 @@ function App() {
                 const currentAst = ast();
                 if (!currentAst) return;
                 el.innerHTML = "";
-                render(el, <MarkdownRenderer ast={currentAst} callbacks={rendererCallbacks} options={rendererOptions} />);
+                const opts = { ...rendererOptions, sourceText: source() };
+                render(el, <MarkdownRenderer ast={currentAst} callbacks={rendererCallbacks} options={opts} />);
               });
             }} onClick={handlePreviewClick}></div>
           </div>
