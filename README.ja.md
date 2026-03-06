@@ -1,5 +1,9 @@
 # @y4mau/markdown
 
+![CI](https://github.com/y4mau/markdown.mbt/actions/workflows/ci.yml/badge.svg)
+![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/y4mau/markdown.mbt/badge)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 JavaScript/MoonBit 向け CST ベースのインクリメンタル Markdown パーサー。
 
 > **[mizchi/markdown.mbt](https://github.com/mizchi/markdown.mbt) のフォーク** — ローカルファイル編集・プレビュー・Claude Code 連携などのプレイグラウンド機能を追加しています。
