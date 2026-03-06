@@ -159,25 +159,11 @@ function HeadingWithCopy({
   const sectionText = () => sourceText.slice(sectionStart, sectionEnd);
 
   const highlightSection = () => {
-    const body = headingRef?.closest(".markdown-body");
-    if (!body) return;
-    body.querySelectorAll("[data-span]").forEach((el) => {
-      const s = el.getAttribute("data-span")!;
-      const [startStr, endStr] = s.split("-");
-      const elStart = parseInt(startStr!, 10);
-      const elEnd = parseInt(endStr!, 10);
-      if (elStart >= sectionStart && elEnd <= sectionEnd) {
-        el.classList.add("section-highlight");
-      }
-    });
+    headingRef?.closest(".heading-section")?.classList.add("section-highlight");
   };
 
   const clearHighlight = () => {
-    const body = headingRef?.closest(".markdown-body");
-    if (!body) return;
-    body.querySelectorAll(".section-highlight").forEach((el) => {
-      el.classList.remove("section-highlight");
-    });
+    headingRef?.closest(".heading-section")?.classList.remove("section-highlight");
   };
 
   return (
@@ -605,6 +591,56 @@ function computeHeadingSections(children: RootContent[]): Map<string, HeadingSec
   return result;
 }
 
+// Group blocks into heading sections for section-level highlighting
+function groupIntoSections(
+  children: RootContent[],
+  headingSections: Map<string, HeadingSectionRange> | undefined,
+  callbacks: RendererCallbacks | undefined,
+  options: RendererOptions | undefined,
+): JSX.Element[] {
+  if (!headingSections || headingSections.size === 0) {
+    return children.map((block, i) => renderBlock(block, i, callbacks, options)).filter(Boolean) as JSX.Element[];
+  }
+
+  const result: JSX.Element[] = [];
+  let currentSection: JSX.Element[] = [];
+  let currentHeadingSpan: string | null = null;
+  let sectionIdx = 0;
+
+  const flushSection = () => {
+    if (currentSection.length > 0) {
+      if (currentHeadingSpan) {
+        result.push(
+          <div class="heading-section" key={`section-${sectionIdx}`}>
+            {currentSection}
+          </div>
+        );
+      } else {
+        currentSection.forEach((el) => result.push(el));
+      }
+      sectionIdx++;
+      currentSection = [];
+      currentHeadingSpan = null;
+    }
+  };
+
+  for (let i = 0; i < children.length; i++) {
+    const block = children[i]!;
+    if (block.type === "heading") {
+      const span = getSpan(block);
+      if (headingSections.has(span)) {
+        flushSection();
+        currentHeadingSpan = span;
+      }
+    }
+    const rendered = renderBlock(block, i, callbacks, options);
+    if (rendered) currentSection.push(rendered);
+  }
+  flushSection();
+
+  return result;
+}
+
 // Document renderer component
 export function MarkdownRenderer({
   ast,
@@ -625,7 +661,7 @@ export function MarkdownRenderer({
 
   return (
     <div class="markdown-body" data-span={getSpan(ast)}>
-      {ast.children.map((block, i) => renderBlock(block, i, callbacks, optionsWithSections)).filter(Boolean)}
+      {groupIntoSections(ast.children, optionsWithSections?._headingSections, callbacks, optionsWithSections)}
     </div>
   );
 }

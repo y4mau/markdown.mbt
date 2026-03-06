@@ -499,10 +499,18 @@
     .preview .heading-with-copy .section-copy-btn.copied .icon-copy { display: none; }
     .preview .heading-with-copy .section-copy-btn.copied .icon-check { display: inline; }
 
-    /* Highlight section range on copy button hover */
-    .preview .section-highlight {
+    /* Heading section wrapper */
+    .preview .heading-section {
+      border-radius: 6px;
+      padding: 0 12px 2px;
+      margin: 0 -12px;
+      transition: background-color 0.15s;
+    }
+
+    /* Highlight entire section on copy button hover */
+    .preview .heading-section.section-highlight {
       background: var(--code-bg);
-      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
 
     .preview h1, .preview h2, .preview h3, .preview h4, .preview h5, .preview h6 {
