@@ -1,6 +1,6 @@
 # @y4mau/markdown
 
-**[日本語](./README.ja.md)**
+日本語版は[こちら](./README.ja.md)
 
 CST-based incremental Markdown parser for JavaScript/MoonBit.
 
