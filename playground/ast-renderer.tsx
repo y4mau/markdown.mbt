@@ -517,7 +517,7 @@ export function renderInline(inline: PhrasingContent, key?: string | number): JS
 
     case "link":
       return (
-        <a key={key} href={inline.url} title={inline.title ?? undefined}>
+        <a key={key} href={inline.url} {...(inline.title ? { title: inline.title } : {})}>
           {inline.children.map((child, i) => renderInline(child, i)).filter(Boolean)}
         </a>
       );
@@ -536,7 +536,7 @@ export function renderInline(inline: PhrasingContent, key?: string | number): JS
           key={key}
           src={inline.url}
           alt={inline.alt ?? ""}
-          title={inline.title ?? undefined}
+          {...(inline.title ? { title: inline.title } : {})}
         />
       );
 
