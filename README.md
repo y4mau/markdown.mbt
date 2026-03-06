@@ -17,6 +17,8 @@ This fork adds the following on top of upstream:
 
 ## Quick Setup
 
+### Bash (Linux / WSL / macOS)
+
 ```bash
 git clone https://github.com/y4mau/markdown.mbt.git
 cd markdown.mbt
@@ -26,6 +28,18 @@ moon build --target js
 source ~/.bashrc
 pnpm exec vite                                    # Start dev server
 open http://localhost:5173/?file=$PWD/README.md   # Preview README
+```
+
+### PowerShell (Windows)
+
+```powershell
+git clone https://github.com/y4mau/markdown.mbt.git
+cd markdown.mbt
+pnpm install
+moon build --target js
+.\scripts\install-mdpreview.ps1                   # Install skill + shell function
+pnpm exec vite                                    # Start dev server
+Start-Process "http://localhost:5173/?file=$($PWD.Path)/README.md"  # Preview README
 ```
 
 ## Claude Code Integration
