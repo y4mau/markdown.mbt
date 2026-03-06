@@ -1,10 +1,10 @@
 # @y4mau/markdown
 
-日本語版は[こちら](./README.ja.md)
-
 CST-based incremental Markdown parser for JavaScript/MoonBit.
 
 > **Fork of [mizchi/markdown.mbt](https://github.com/mizchi/markdown.mbt)** with playground enhancements for local editing, preview, and Claude Code integration.
+
+> 日本語版READMEは[こちら](./README.ja.md)
 
 ## Fork Features
 
