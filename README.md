@@ -15,6 +15,19 @@ This fork adds the following on top of upstream:
 - **Multiple view modes** — Split / editor-only / preview-only
 - **Preview-to-source navigation** — Click preview elements to jump to the corresponding source position
 
+## Quick Setup
+
+```bash
+git clone https://github.com/y4mau/markdown.mbt.git
+cd markdown.mbt
+pnpm install
+moon build --target js
+./scripts/install-mdpreview.sh                    # Install skill + shell function
+source ~/.bashrc
+pnpm exec vite                                    # Start dev server
+open http://localhost:5173/?file=$PWD/README.md   # Preview README
+```
+
 ## Claude Code Integration
 
 The `mdpreview` skill lets Claude Code open any local `.md` file in the playground browser preview.
