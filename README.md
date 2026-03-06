@@ -23,7 +23,9 @@ This fork adds the following on top of upstream:
 
 - [Node.js](https://nodejs.org/) (v18+)
 - [pnpm](https://pnpm.io/) — `npm install -g pnpm`
-- [MoonBit](https://www.moonbitlang.com/download/) — `curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash`
+- [MoonBit](https://www.moonbitlang.com/download/)
+  - Linux / macOS: `curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash`
+  - Windows: `irm https://cli.moonbitlang.com/install/powershell.ps1 | iex`
 
 ### Bash (Linux / WSL / macOS)
 
