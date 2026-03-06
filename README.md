@@ -1,5 +1,7 @@
 # @y4mau/markdown
 
+**[日本語](./README.ja.md)**
+
 CST-based incremental Markdown parser for JavaScript/MoonBit.
 
 > **Fork of [mizchi/markdown.mbt](https://github.com/mizchi/markdown.mbt)** with playground enhancements for local editing, preview, and Claude Code integration.
@@ -64,7 +66,11 @@ The `mdpreview` skill lets Claude Code open any local `.md` file in the playgrou
 
 ```
 Preview README.md
+```
+```
 Show me docs/markdown.md in the playground
+```
+```
 Open my-notes.md in the browser
 ```
 
@@ -72,7 +78,11 @@ Open my-notes.md in the browser
 
 ```
 README.md をプレビューして
+```
+```
 docs/markdown.md をプレイグラウンドで表示して
+```
+```
 my-notes.md をブラウザで開いて
 ```
 
