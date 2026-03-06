@@ -39,7 +39,7 @@ moon build --target js
 ./scripts/install-mdpreview.sh                    # Install skill + shell function
 source ~/.bashrc
 pnpm exec vite                                    # Start dev server
-open http://localhost:5173/?file=$PWD/README.md   # Preview README
+# Open http://localhost:5173/?file=$PWD/README.md in browser
 ```
 
 ### PowerShell (Windows)
@@ -51,7 +51,7 @@ pnpm install
 moon build --target js
 .\scripts\install-mdpreview.ps1                   # Install skill + shell function
 pnpm exec vite                                    # Start dev server
-Start-Process "http://localhost:5173/?file=$($PWD.Path)/README.md"  # Preview README
+# Open http://localhost:5173/?file=<path-to>/README.md in browser
 ```
 
 ## Claude Code Integration

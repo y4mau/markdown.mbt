@@ -37,7 +37,7 @@ moon build --target js
 ./scripts/install-mdpreview.sh                    # スキル＋シェル関数をインストール
 source ~/.bashrc
 pnpm exec vite                                    # 開発サーバー起動
-open http://localhost:5173/?file=$PWD/README.md   # README をプレビュー
+# ブラウザで http://localhost:5173/?file=$PWD/README.md を開く
 ```
 
 ### PowerShell (Windows)
@@ -49,7 +49,7 @@ pnpm install
 moon build --target js
 .\scripts\install-mdpreview.ps1                   # スキル＋シェル関数をインストール
 pnpm exec vite                                    # 開発サーバー起動
-Start-Process "http://localhost:5173/?file=$($PWD.Path)/README.md"  # README をプレビュー
+# ブラウザで http://localhost:5173/?file=<path-to>/README.md を開く
 ```
 
 ## Claude Code 連携
