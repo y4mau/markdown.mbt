@@ -1,4 +1,4 @@
-# @mizchi/markdown
+# @y4mau/markdown
 
 CST-based incremental Markdown parser for JavaScript/MoonBit.
 
