@@ -25,7 +25,7 @@ This fork adds the following on top of upstream:
   - Linux / macOS: `curl -fsSL https://fnm.vercel.app/install | bash && fnm install --lts`
   - Windows: `winget install Schniz.fnm` then `fnm install --lts`
 - [pnpm](https://pnpm.io/) — `npm install -g pnpm`
-- [MoonBit](https://www.moonbitlang.com/download/)
+- [MoonBit](https://www.moonbitlang.com/download/) — restart terminal after install
   - Linux / macOS: `curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash`
   - Windows: `irm https://cli.moonbitlang.com/install/powershell.ps1 | iex`
 
