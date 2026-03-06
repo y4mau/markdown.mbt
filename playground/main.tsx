@@ -996,7 +996,7 @@ function App() {
             </div>
             <div class="toolbar-actions">
               <button
-                class="toolbar-copy-all theme-toggle"
+                class="toolbar-copy-all toolbar-action-btn"
                 title="Copy all markdown"
                 onClick={(e: MouseEvent) => {
                   navigator.clipboard.writeText(source());
@@ -1007,17 +1007,17 @@ function App() {
               >
                 <Icon svg={COPY_ALL_ICON} />
               </button>
-              <button onClick={handleFileOpen} class="theme-toggle" title="Open file">
+              <button onClick={handleFileOpen} class="toolbar-action-btn" title="Open file">
                 <Icon svg={FILE_OPEN_ICON} />
               </button>
-              <button onClick={toggleDark} class="theme-toggle" title="Toggle dark mode"
+              <button onClick={toggleDark} class="toolbar-action-btn" title="Toggle dark mode"
                 ref={(el) => {
                   createEffect(() => {
                     el.innerHTML = `<span style="display:flex;align-items:center">${isDark() ? SUN_ICON : MOON_ICON}</span>`;
                   });
                 }}
               />
-              <button onClick={() => window.open("https://github.com/y4mau/markdown.mbt", "_blank", "noopener,noreferrer")} class="theme-toggle" title="View on GitHub">
+              <button onClick={() => window.open("https://github.com/y4mau/markdown.mbt", "_blank", "noopener,noreferrer")} class="toolbar-action-btn" title="View on GitHub">
                 <Icon svg={GITHUB_ICON} />
               </button>
             </div>
