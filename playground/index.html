@@ -479,6 +479,60 @@
       text-decoration: underline;
     }
 
+    /* Code block copy button */
+    .preview .code-block-wrapper {
+      position: relative;
+      margin: 16px 0;
+    }
+
+    .preview .code-block-wrapper pre {
+      margin: 0;
+    }
+
+    .preview .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+    }
+
+    .preview .code-block-wrapper:hover .copy-btn {
+      opacity: 1;
+    }
+
+    .preview .copy-btn:hover {
+      background: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .preview .copy-btn .icon-check {
+      display: none;
+    }
+
+    .preview .copy-btn.copied {
+      opacity: 1;
+      color: #3fb950;
+    }
+
+    .preview .copy-btn.copied .icon-copy {
+      display: none;
+    }
+
+    .preview .copy-btn.copied .icon-check {
+      display: inline;
+    }
+
     .preview pre {
       background: var(--code-bg);
       padding: 16px;

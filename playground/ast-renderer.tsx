@@ -97,6 +97,33 @@ export function RawHtml({ html, ...props }: { html: string } & Record<string, un
   );
 }
 
+// Code block wrapper with copy button
+function CodeBlock({ code, children }: { code: string; children: JSX.Element }) {
+  const handleCopy = (e: MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(code);
+    const btn = e.currentTarget as HTMLElement;
+    btn.classList.add("copied");
+    setTimeout(() => btn.classList.remove("copied"), 2000);
+  };
+  return (
+    <div class="code-block-wrapper">
+      {children}
+      <button
+        class="copy-btn"
+        onMouseDown={(e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); }}
+        onClick={handleCopy}
+        title="Copy code"
+        ref={(el) => {
+          if (el) el.innerHTML =
+            '<svg class="icon-copy" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>' +
+            '<svg class="icon-check" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+        }}
+      />
+    </div>
+  );
+}
+
 // Helper component to render raw HTML in a span
 function RawHtmlSpan({ html, ...props }: { html: string } & Record<string, unknown>) {
   return (
@@ -195,19 +222,22 @@ export function renderBlock(
       if (highlighted) {
         // Use highlighted HTML from syntree (highlight format)
         return (
-          <RawHtml
-            key={key}
-            data-span={span}
-            html={highlighted}
-          />
+          <CodeBlock code={block.value} key={key}>
+            <RawHtml
+              data-span={span}
+              html={highlighted}
+            />
+          </CodeBlock>
         );
       }
 
       // Fallback for unsupported languages
       return (
-        <pre key={key} data-span={span}>
-          <code class={lang ? `language-${lang}` : undefined}>{block.value}</code>
-        </pre>
+        <CodeBlock code={block.value} key={key}>
+          <pre data-span={span}>
+            <code class={lang ? `language-${lang}` : undefined}>{block.value}</code>
+          </pre>
+        </CodeBlock>
       );
     }
 
