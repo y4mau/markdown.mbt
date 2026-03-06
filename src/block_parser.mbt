@@ -646,12 +646,20 @@ fn BlockParser::parse_bullet_list(
       self.scanner.restore(item_start)
       break
     }
+
+    // Verify it's a real list marker (followed by space/tab) and not a
+    // thematic break like --- or *** that starts with the same character
     self.scanner.advance(1) // Skip marker
     let content_offset = self.scanner.skip_spaces()
-    let actual_offset = if content_offset == 0 { 1 } else { content_offset }
+    if content_offset == 0 {
+      // No space after marker — not a valid list item.
+      // Could be a thematic break (---, ***) or other construct.
+      self.scanner.restore(item_start)
+      break
+    }
 
     // Parse item content
-    let item = self.parse_list_item(item_start, marker_offset, actual_offset)
+    let item = self.parse_list_item(item_start, marker_offset, content_offset)
     items.push(item)
 
     // Check for blank lines (affects tight/loose)
