@@ -1,7 +1,7 @@
 # @y4mau/markdown
 
 ![CI](https://github.com/y4mau/markdown.mbt/actions/workflows/ci.yml/badge.svg)
-![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/y4mau/markdown.mbt/badge)
+![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/y4mau/markdown.mbt)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 CST-based incremental Markdown parser for JavaScript/MoonBit.
