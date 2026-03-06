@@ -38,8 +38,9 @@ pnpm install
 moon build --target js
 ./scripts/install-mdpreview.sh                    # Install skill + shell function
 source ~/.bashrc
-pnpm exec vite                                    # Start dev server
-# Open http://localhost:5173/?file=$PWD/README.md in browser
+pnpm exec vite &                                  # Start dev server in background
+sleep 2
+open http://localhost:5173/?file=$PWD/README.md   # Preview README
 ```
 
 ### PowerShell (Windows)
@@ -50,8 +51,9 @@ cd markdown.mbt
 pnpm install
 moon build --target js
 .\scripts\install-mdpreview.ps1                   # Install skill + shell function
-pnpm exec vite                                    # Start dev server
-# Open http://localhost:5173/?file=<path-to>/README.md in browser
+Start-Process pnpm "exec vite"                    # Start dev server in background
+Start-Sleep 2
+Start-Process "http://localhost:5173/?file=$($PWD.Path)/README.md"  # Preview README
 ```
 
 ## Claude Code Integration
