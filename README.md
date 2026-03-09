@@ -8,6 +8,14 @@ CST-based incremental Markdown parser for JavaScript/MoonBit.
 
 > **Fork of [mizchi/markdown.mbt](https://github.com/mizchi/markdown.mbt)** with playground enhancements for local editing, preview, and Claude Code integration.
 
+<p align="center">
+  <a href="./docs/playground-screenshot.png">
+    <img src="./docs/playground-screenshot.png" alt="Playground Screenshot" width="600" />
+  </a>
+  <br />
+  <em>Playground — live Markdown editing and preview</em>
+</p>
+
 > 日本語版READMEは[こちら](./README.ja.md)
 
 ## Fork Features
