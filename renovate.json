@@ -1,0 +1,37 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "schedule:weekly", ":semanticCommitTypeAll(chore)"],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Automerge patch/minor devDeps",
+      "matchUpdateTypes": ["patch", "minor"],
+      "matchDepTypes": ["devDependencies"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Group Playwright",
+      "matchPackagePatterns": ["playwright"],
+      "groupName": "playwright"
+    },
+    {
+      "description": "Group remark/unified",
+      "matchPackagePatterns": ["remark", "unified", "mdast", "unist"],
+      "groupName": "remark-ecosystem"
+    },
+    {
+      "description": "Group Vite/Vitest",
+      "matchPackagePatterns": ["vite", "vitest"],
+      "groupName": "vite"
+    },
+    {
+      "description": "Major bumps need review",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "major"]
+    }
+  ],
+  "lockFileMaintenance": { "enabled": true, "schedule": ["before 6am on monday"] },
+  "ignorePaths": [".mooncakes/**"]
+}

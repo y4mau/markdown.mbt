@@ -1,0 +1,52 @@
+name: Update MoonBit Dependencies
+
+on:
+  schedule:
+    - cron: "0 6 * * 3" # Wednesday 6:00 UTC (offset from Renovate's Monday)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MoonBit CLI
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Update root dependencies
+        run: moon update
+
+      - name: Update benches dependencies
+        working-directory: benches
+        run: moon update
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet moon.mod.json benches/moon.mod.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "### Changed files:" >> "$GITHUB_STEP_SUMMARY"
+            git diff --stat moon.mod.json benches/moon.mod.json >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/update-moonbit-deps
+          commit-message: "chore(deps): update moonbit dependencies"
+          title: "chore(deps): update moonbit dependencies"
+          body: |
+            Automated MoonBit dependency update via `moon update`.
+
+            Please review the changes to `moon.mod.json` files and ensure tests pass before merging.
+          labels: dependencies
+          delete-branch: true
