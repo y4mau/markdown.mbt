@@ -75,6 +75,13 @@ test "html: table many rows" {
 }
 
 ///|
+test "html: table with empty header cell" {
+  assert_html_compat(
+    "| | a | b |\n|---|---|---|\n| x | 1 | 2 |\n", "table with empty header cell",
+  )
+}
+
+///|
 test "html: table with strikethrough" {
   assert_html_compat(
     "| text |\n|------|\n| ~~del~~ |\n", "table with strikethrough",
