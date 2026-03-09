@@ -1,0 +1,154 @@
+name: CI (Comprehensive)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  comprehensive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Install MoonBit CLI
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Set up pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+        with:
+          run_install: false
+      - name: Install dependencies
+        run: pnpm install
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 24
+          cache: "pnpm"
+      - name: Generate CommonMark tests
+        run: node scripts/gen-tests.js
+      - name: Generate GFM tests
+        run: node scripts/gen-gfm-tests.js
+      - name: Check
+        run: |
+          moon update
+          moon check
+      - name: Clean coverage data
+        run: moon coverage clean
+      - name: Test all targets
+        id: test-core
+        continue-on-error: true
+        run: |
+          moon test src --target native,wasm-gc
+          moon test src --target js --enable-coverage
+      - name: Test CommonMark
+        id: test-cmark
+        continue-on-error: true
+        run: moon test src/cmark_tests --target js --enable-coverage
+      - name: Test GFM
+        id: test-gfm
+        continue-on-error: true
+        run: moon test src/gfm_tests --target js --enable-coverage
+      - name: Test HTML
+        id: test-html
+        continue-on-error: true
+        run: moon test src/html_tests --target js --enable-coverage
+      - name: Test TUI
+        id: test-tui
+        continue-on-error: true
+        run: moon test src/tui --target all
+      - name: Test Bench
+        id: bench
+        continue-on-error: true
+        run: moon bench
+      - name: Component build (wasm)
+        id: wasm-build
+        continue-on-error: true
+        run: |
+          cd component
+          moon build --target wasm --release
+      - name: Coverage analysis (core package, excluding bench)
+        id: coverage
+        continue-on-error: true
+        run: |
+          moon coverage analyze -p mizchi/markdown -- -f summary 2>&1 | tee coverage.log
+          # Exclude non-production files (bench, experimental)
+          COVERED=0
+          TOTAL=0
+          while IFS= read -r line; do
+            case "$line" in
+              *bench.mbt:*|*crdt_experiment.mbt:*|*inline_token.mbt:*) continue ;;
+              src/*:*)
+                c=$(echo "$line" | sed 's/.*: \([0-9]*\)\/\([0-9]*\)/\1/')
+                t=$(echo "$line" | sed 's/.*: \([0-9]*\)\/\([0-9]*\)/\2/')
+                COVERED=$((COVERED + c))
+                TOTAL=$((TOTAL + t))
+                ;;
+            esac
+          done < coverage.log
+          if [ "$TOTAL" -gt 0 ]; then
+            PCT=$(awk "BEGIN {printf \"%.1f\", $COVERED * 100 / $TOTAL}")
+            echo "covered=$COVERED" >> "$GITHUB_OUTPUT"
+            echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+            echo "pct=$PCT" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Restore main branch coverage baseline
+        if: github.event_name == 'pull_request'
+        id: baseline
+        uses: actions/cache/restore@v4
+        with:
+          path: .coverage-baseline
+          key: coverage-baseline-main-
+          restore-keys: coverage-baseline-main-
+      - name: Compute coverage diff
+        if: github.event_name == 'pull_request'
+        id: diff
+        run: |
+          if [ -f .coverage-baseline ]; then
+            BASE_PCT=$(cat .coverage-baseline)
+            CURR_PCT="${{ steps.coverage.outputs.pct }}"
+            if [ -n "$BASE_PCT" ] && [ -n "$CURR_PCT" ]; then
+              DIFF=$(awk "BEGIN {d=$CURR_PCT - $BASE_PCT; printf \"%+.1f\", d}")
+              echo "diff=$DIFF" >> "$GITHUB_OUTPUT"
+              echo "base=$BASE_PCT" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "diff=" >> "$GITHUB_OUTPUT"
+            echo "base=" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Save coverage baseline (main only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "${{ steps.coverage.outputs.pct }}" > .coverage-baseline
+      - name: Update coverage baseline cache (main only)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: .coverage-baseline
+          key: coverage-baseline-main-${{ github.sha }}
+      - name: Post coverage & test summary
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2.9.4
+        with:
+          header: test-coverage
+          message: |
+            ## Test & Coverage Summary
+            | Suite | Result |
+            |-------|--------|
+            | Core (js,native,wasm-gc) | ${{ steps.test-core.outcome == 'success' && 'pass' || 'FAIL' }} |
+            | CommonMark compat | ${{ steps.test-cmark.outcome == 'success' && 'pass' || 'FAIL' }} |
+            | GFM compat | ${{ steps.test-gfm.outcome == 'success' && 'pass' || 'FAIL' }} |
+            | HTML rendering | ${{ steps.test-html.outcome == 'success' && 'pass' || 'FAIL' }} |
+            | TUI | ${{ steps.test-tui.outcome == 'success' && 'pass' || 'FAIL' }} |
+            | Bench | ${{ steps.bench.outcome == 'success' && 'pass' || 'FAIL' }} |
+            | WASM build | ${{ steps.wasm-build.outcome == 'success' && 'pass' || 'FAIL' }} |
+
+            **Coverage (core):** ${{ steps.coverage.outputs.pct }}% (${{ steps.coverage.outputs.covered }}/${{ steps.coverage.outputs.total }} lines) ${{ steps.diff.outputs.diff && format('| main: {0}% ({1})', steps.diff.outputs.base, steps.diff.outputs.diff) || '| _no baseline yet_' }}
+      - name: Fail if tests failed
+        if: steps.test-core.outcome == 'failure'
+        run: exit 1
