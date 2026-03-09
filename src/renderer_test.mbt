@@ -119,3 +119,191 @@ test "render footnote" {
   inspect(html.contains("<sup><a href=\"#fn-1\""), content="true")
   inspect(html.contains("<div class=\"footnote\" id=\"fn-1\">"), content="true")
 }
+
+///|
+test "render indented code" {
+  let html = md_to_html("    code line\n")
+  inspect(html.contains("<pre><code>"), content="true")
+  inspect(html.contains("code line"), content="true")
+}
+
+///|
+test "render strikethrough" {
+  let html = md_to_html("~~deleted~~\n")
+  inspect(html, content="<p><del>deleted</del></p>\n")
+}
+
+///|
+test "render autolink" {
+  let html = md_to_html("<https://example.com>\n")
+  inspect(
+    html,
+    content="<p><a href=\"https://example.com\">https://example.com</a></p>\n",
+  )
+}
+
+///|
+test "render autolink email" {
+  let html = md_to_html("<user@example.com>\n")
+  inspect(html.contains("mailto:"), content="true")
+  inspect(html.contains("user@example.com"), content="true")
+}
+
+///|
+test "render hard break" {
+  let html = md_to_html("line1\\\nline2\n")
+  inspect(html.contains("<br>"), content="true")
+  inspect(html.contains("line1"), content="true")
+  inspect(html.contains("line2"), content="true")
+}
+
+///|
+test "render soft break" {
+  let html = md_to_html("line1\nline2\n")
+  inspect(html.contains("line1"), content="true")
+  inspect(html.contains("line2"), content="true")
+}
+
+///|
+test "render code with special chars" {
+  let html = md_to_html("`a < b`\n")
+  inspect(html.contains("<code>a &lt; b</code>"), content="true")
+}
+
+///|
+test "render html block" {
+  let html = md_to_html("<div>\nhello\n</div>\n")
+  inspect(html.contains("<div>"), content="true")
+}
+
+///|
+test "render table with alignment" {
+  let html = md_to_html("| L | C | R |\n|:--|:-:|--:|\n| a | b | c |\n")
+  inspect(html.contains("align=\"left\""), content="true")
+  inspect(html.contains("align=\"center\""), content="true")
+  inspect(html.contains("align=\"right\""), content="true")
+}
+
+///|
+test "render ordered list with start" {
+  let html = md_to_html("3. a\n4. b\n")
+  inspect(html.contains("start=\"3\""), content="true")
+}
+
+///|
+test "render fenced code no language" {
+  let html = md_to_html("```\nplain\n```\n")
+  inspect(html, content="<pre><code>plain\n</code></pre>\n")
+}
+
+///|
+test "render image with title" {
+  let html = md_to_html("![alt](img.png \"title\")\n")
+  inspect(html.contains("title=\"title\""), content="true")
+  inspect(html.contains("alt=\"alt\""), content="true")
+}
+
+///|
+test "render strong and emphasis separate" {
+  let html = md_to_html("**bold** and *italic*\n")
+  inspect(html.contains("<strong>bold</strong>"), content="true")
+  inspect(html.contains("<em>italic</em>"), content="true")
+}
+
+///|
+test "render mixed list" {
+  let html = md_to_html("- a\n- b\n  - c\n")
+  inspect(html.contains("<ul>"), content="true")
+  inspect(html.contains("<li>"), content="true")
+}
+
+///|
+test "render ordered list with task" {
+  let html = md_to_html("1. [ ] todo\n2. [x] done\n")
+  inspect(html.contains("contains-task-list"), content="true")
+  inspect(html.contains("<ol"), content="true")
+}
+
+///|
+test "render ordered list with start and task" {
+  let html = md_to_html("3. [ ] todo\n4. [x] done\n")
+  inspect(html.contains("contains-task-list"), content="true")
+  inspect(html.contains("start=\"3\""), content="true")
+}
+
+///|
+test "render strict mode" {
+  let html = md_to_html_strict("*emphasis*\n")
+  inspect(html.contains("<em>emphasis</em>"), content="true")
+}
+
+///|
+test "render escape quote in attr" {
+  let html = md_to_html("[link](url\"quote)\n")
+  inspect(html.contains("&quot;"), content="true")
+}
+
+///|
+test "render escape ampersand" {
+  let html = md_to_html("[a&b](url)\n")
+  inspect(html.contains("&amp;"), content="true")
+}
+
+///|
+test "render ref link" {
+  let source = "[text][ref]\n\n[ref]: https://example.com\n"
+  let result = parse(source)
+  let html = render_html(result.document)
+  inspect(html.contains("text"), content="true")
+}
+
+///|
+test "render ref image" {
+  let source = "![alt][ref]\n\n[ref]: image.png\n"
+  let result = parse(source)
+  let html = render_html(result.document)
+  inspect(html.contains("alt"), content="true")
+}
+
+///|
+test "render html block no trailing newline" {
+  let result = parse("<div>test</div>")
+  let html = render_html(result.document)
+  inspect(html.contains("<div>"), content="true")
+}
+
+///|
+test "render plugin default options" {
+  let opts = RenderOptions::default()
+  inspect(opts.code_highlighter is None, content="true")
+}
+
+///|
+test "render plugin with highlighter" {
+  let opts = RenderOptions::with_highlighter(fn(
+    info : CodeBlockInfo,
+    code : String,
+  ) -> String {
+    "<highlighted lang=\"" + info.lang + "\">" + code + "</highlighted>"
+  })
+  inspect(not(opts.code_highlighter is None), content="true")
+}
+
+///|
+test "render plugin with simple highlighter" {
+  let opts = RenderOptions::with_simple_highlighter(fn(
+    lang : String,
+    code : String,
+  ) -> String {
+    "<pre class=\"" + lang + "\">" + code + "</pre>"
+  })
+  inspect(not(opts.code_highlighter is None), content="true")
+  match opts.code_highlighter {
+    Some(hl) => {
+      let info = parse_code_block_info("js")
+      let result = hl(info, "code")
+      inspect(result.contains("js"), content="true")
+    }
+    None => fail("Expected highlighter")
+  }
+}

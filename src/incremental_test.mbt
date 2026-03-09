@@ -170,3 +170,154 @@ test "incremental result stats" {
     None => fail("Could not find 'P3' in source")
   }
 }
+
+///|
+test "incremental: edit in blockquote" {
+  let old_source = "# Title\n\n> Quote text.\n\nAfter.\n"
+  let old_doc = parse(old_source).document
+  let edit_offset = old_source.find("Quote")
+  match edit_offset {
+    Some(offset) => {
+      let new_source = "# Title\n\n> New quote.\n\nAfter.\n"
+      let edit = EditInfo::replace(offset, 10, 9)
+      let result = parse_incremental(old_doc, old_source, new_source, edit)
+      inspect(result.reparsed >= 1, content="true")
+    }
+    None => fail("Could not find 'Quote' in source")
+  }
+}
+
+///|
+test "incremental: edit in ordered list" {
+  let old_source = "# Title\n\n1. First\n2. Second\n\nAfter.\n"
+  let old_doc = parse(old_source).document
+  let edit_offset = old_source.find("Second")
+  match edit_offset {
+    Some(offset) => {
+      let new_source = "# Title\n\n1. First\n2. Changed\n\nAfter.\n"
+      let edit = EditInfo::replace(offset, 6, 7)
+      let result = parse_incremental(old_doc, old_source, new_source, edit)
+      inspect(result.reparsed >= 1, content="true")
+    }
+    None => fail("Could not find 'Second' in source")
+  }
+}
+
+///|
+test "incremental: edit in bullet list" {
+  let old_source = "# Title\n\n- Item A\n- Item B\n\nAfter.\n"
+  let old_doc = parse(old_source).document
+  let edit_offset = old_source.find("Item B")
+  match edit_offset {
+    Some(offset) => {
+      let new_source = "# Title\n\n- Item A\n- Item BB\n\nAfter.\n"
+      let edit = EditInfo::replace(offset, 6, 7)
+      let result = parse_incremental(old_doc, old_source, new_source, edit)
+      inspect(result.reparsed >= 1, content="true")
+    }
+    None => fail("Could not find 'Item B' in source")
+  }
+}
+
+///|
+test "incremental: edit in table" {
+  let old_source = "# Title\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\nAfter.\n"
+  let old_doc = parse(old_source).document
+  let edit_offset = old_source.find("| 1 |")
+  match edit_offset {
+    Some(offset) => {
+      let new_source = "# Title\n\n| A | B |\n|---|---|\n| X | 2 |\n\nAfter.\n"
+      let edit = EditInfo::replace(offset + 2, 1, 1)
+      let result = parse_incremental(old_doc, old_source, new_source, edit)
+      inspect(result.reparsed >= 1, content="true")
+    }
+    None => fail("Could not find table row")
+  }
+}
+
+///|
+test "incremental: edit in html block" {
+  let old_source = "# Title\n\n<div>hello</div>\n\nAfter.\n"
+  let old_doc = parse(old_source).document
+  let edit_offset = old_source.find("hello")
+  match edit_offset {
+    Some(offset) => {
+      let new_source = "# Title\n\n<div>world</div>\n\nAfter.\n"
+      let edit = EditInfo::replace(offset, 5, 5)
+      let result = parse_incremental(old_doc, old_source, new_source, edit)
+      inspect(result.reparsed >= 1, content="true")
+    }
+    None => fail("Could not find 'hello'")
+  }
+}
+
+///|
+test "incremental: edit thematic break area" {
+  let old_source = "# Title\n\n---\n\nAfter.\n"
+  let old_doc = parse(old_source).document
+  let new_source = "# Title\n\n***\n\nAfter.\n"
+  let edit = EditInfo::replace(10, 3, 3)
+  let result = parse_incremental(old_doc, old_source, new_source, edit)
+  inspect(result.reparsed >= 1, content="true")
+}
+
+///|
+test "incremental: edit with indented code" {
+  let old_source = "# Title\n\n    code here\n\nAfter.\n"
+  let old_doc = parse(old_source).document
+  let edit_offset = old_source.find("code here")
+  match edit_offset {
+    Some(offset) => {
+      let new_source = "# Title\n\n    new code\n\nAfter.\n"
+      let edit = EditInfo::replace(offset, 9, 8)
+      let result = parse_incremental(old_doc, old_source, new_source, edit)
+      inspect(result.reparsed >= 1, content="true")
+    }
+    None => fail("Could not find 'code here'")
+  }
+}
+
+///|
+test "incremental: edit with footnote" {
+  let old_source = "Text[^1]\n\n[^1]: Note text\n\nAfter.\n"
+  let old_doc = parse(old_source).document
+  let edit_offset = old_source.find("Note text")
+  match edit_offset {
+    Some(offset) => {
+      let new_source = "Text[^1]\n\n[^1]: New note\n\nAfter.\n"
+      let edit = EditInfo::replace(offset, 9, 8)
+      let result = parse_incremental(old_doc, old_source, new_source, edit)
+      inspect(result.reparsed >= 1, content="true")
+    }
+    None => fail("Could not find 'Note text'")
+  }
+}
+
+///|
+test "incremental: edit first block with frontmatter" {
+  let old_source = "---\ntitle: Hello\n---\n\n# Title\n\nParagraph.\n"
+  let old_doc = parse(old_source).document
+  let new_source = "---\ntitle: Hello\n---\n\n# New Title\n\nParagraph.\n"
+  let edit = EditInfo::replace(23, 5, 9)
+  let result = parse_incremental(old_doc, old_source, new_source, edit)
+  inspect(result.reparsed >= 1, content="true")
+  match result.document.frontmatter {
+    Some(_) => ()
+    None => fail("Frontmatter should be preserved")
+  }
+}
+
+///|
+test "incremental: edit at very start with frontmatter" {
+  let old_source = "---\ntitle: A\n---\n\nContent.\n"
+  let old_doc = parse(old_source).document
+  let new_source = "---\ntitle: B\n---\n\nContent.\n"
+  let edit = EditInfo::replace(10, 1, 1)
+  let result = parse_incremental(old_doc, old_source, new_source, edit)
+  let full = parse(new_source)
+  inspect(
+    result.document.children.length(),
+    content=full.document.children.length().to_string(),
+  )
+}
+
