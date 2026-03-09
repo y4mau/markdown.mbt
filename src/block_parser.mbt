@@ -1523,9 +1523,7 @@ fn BlockParser::try_parse_table(self : BlockParser, start : Int) -> Block? {
 
   // Count header columns - must match separator columns for valid table
   let header_cells = split_table_cells(header_line)
-  let header_col_count = header_cells
-    .filter(fn(c) { not(c.trim(chars=" \t\n\r").is_empty()) })
-    .length()
+  let header_col_count = header_cells.length()
   if header_col_count != alignments.length() {
     // Column count mismatch - not a valid table
     self.scanner.restore(saved)
