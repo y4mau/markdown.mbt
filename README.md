@@ -16,8 +16,6 @@ CST-based incremental Markdown parser for JavaScript/MoonBit.
   <em>Playground — live Markdown editing and preview</em>
 </p>
 
-> 日本語版READMEは[こちら](./README.ja.md)
-
 ## Fork Features
 
 This fork adds the following on top of upstream:
@@ -80,8 +78,6 @@ The `mdpreview` skill lets Claude Code open any local `.md` file in the playgrou
 
 ### Sample Prompts
 
-**English:**
-
 ```
 Preview README.md
 ```
@@ -90,18 +86,6 @@ Show me docs/markdown.md in the playground
 ```
 ```
 Open my-notes.md in the browser
-```
-
-**Japanese:**
-
-```
-README.md をプレビューして
-```
-```
-docs/markdown.md をプレイグラウンドで表示して
-```
-```
-my-notes.md をブラウザで開いて
 ```
 
 ### SKILL.md
