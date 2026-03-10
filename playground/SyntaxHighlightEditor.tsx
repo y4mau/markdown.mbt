@@ -428,7 +428,7 @@ function getLineFromOffset(text: string, offset: number): number {
 export interface SyntaxHighlightEditorHandle {
   focus: () => void;
   getCursorPosition: () => number;
-  setCursorPosition: (pos: number) => void;
+  setCursorPosition: (pos: number, viewportRatio?: number) => void;
   getScrollTop: () => number;
   setScrollTop: (top: number) => void;
   // setValue with optional span for targeted line updates
@@ -460,12 +460,14 @@ export function SyntaxHighlightEditor(props: SyntaxHighlightEditorProps) {
       props.ref({
         focus: () => editorRef?.focus(),
         getCursorPosition: () => editorRef?.selectionStart ?? 0,
-        setCursorPosition: (pos: number) => {
+        setCursorPosition: (pos: number, viewportRatio?: number) => {
           if (editorRef) {
             const line = getLineFromOffset(editorRef.value, pos);
             const totalLines = editorRef.value.split("\n").length || 1;
             const lineHeight = editorRef.scrollHeight / totalLines;
-            const targetTop = Math.max(0, line * lineHeight - editorRef.clientHeight / 3);
+            const clampedRatio = viewportRatio != null ? Math.min(viewportRatio, 0.85) : 1 / 3;
+            const offset = editorRef.clientHeight * clampedRatio;
+            const targetTop = Math.max(0, line * lineHeight - offset);
             editorRef.setSelectionRange(pos, pos);
             editorRef.focus({ preventScroll: true });
             editorRef.scrollTop = targetTop;

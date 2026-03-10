@@ -472,7 +472,7 @@ function renderTableCell(
 ): JSX.Element {
   const style = align ? { textAlign: align } : undefined;
   return (
-    <Tag key={key} style={style} data-span={getSpan(cell)}>
+    <Tag key={key} style={style}>
       {cell.children.map((child, i) => renderInline(child, i)).filter(Boolean)}
     </Tag>
   );
