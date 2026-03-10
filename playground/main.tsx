@@ -860,23 +860,118 @@ function App() {
     while (target && target !== previewRef) {
       const span = target.getAttribute("data-span");
       if (span) {
-        const start = parseInt(span.split("-")[0]!, 10);
-        if (!isNaN(start)) {
+        const parts = span.split("-");
+        const start = parseInt(parts[0]!, 10);
+        const end = parseInt(parts[1]!, 10);
+        if (!isNaN(start) && !isNaN(end)) {
+          let pos: number;
+
+          // For tables, map click to the correct source line via DOM structure
+          if (target.tagName === "TABLE") {
+            const text = source();
+            const tableSource = text.slice(start, end);
+            const sourceLines = tableSource.split("\n");
+
+            // Find which <tr> was clicked
+            const clickedTr = (e.target as HTMLElement).closest("tr");
+            let rowIdx = 0;
+            if (clickedTr) {
+              const allRows = target.querySelectorAll("tr");
+              for (let i = 0; i < allRows.length; i++) {
+                if (allRows[i] === clickedTr) { rowIdx = i; break; }
+              }
+            }
+
+            // Map visual row index to source line index (skip delimiter row at index 1)
+            const srcLineIdx = rowIdx === 0 ? 0 : rowIdx + 1;
+            const lineIdx = Math.min(srcLineIdx, sourceLines.length - 1);
+
+            // Calculate offset to the start of the target source line
+            let lineOffset = 0;
+            for (let i = 0; i < lineIdx; i++) {
+              lineOffset += sourceLines[i]!.length + 1; // +1 for \n
+            }
+
+            // Find which <td>/<th> was clicked for horizontal position
+            const clickedCell = (e.target as HTMLElement).closest("td, th");
+            if (clickedCell && clickedTr) {
+              const cells = clickedTr.querySelectorAll("td, th");
+              let colIdx = 0;
+              for (let i = 0; i < cells.length; i++) {
+                if (cells[i] === clickedCell) { colIdx = i; break; }
+              }
+              // Find cell start in source line
+              const srcLine = sourceLines[lineIdx] ?? "";
+              let pipeCount = 0;
+              let cellStart = 0;
+              for (let i = 0; i < srcLine.length; i++) {
+                if (srcLine[i] === "|") {
+                  if (pipeCount === colIdx) {
+                    cellStart = i + 1;
+                    break;
+                  }
+                  pipeCount++;
+                }
+              }
+
+              // Get text offset at click point using browser caret API
+              let textOffset = 0;
+              try {
+                const caretPos = (document as any).caretPositionFromPoint?.(e.clientX, e.clientY);
+                const range = caretPos
+                  ? { startContainer: caretPos.offsetNode, startOffset: caretPos.offset }
+                  : document.caretRangeFromPoint?.(e.clientX, e.clientY);
+                if (range && clickedCell.contains(range.startContainer)) {
+                  const walker = document.createTreeWalker(clickedCell, NodeFilter.SHOW_TEXT);
+                  let node: Text | null = null;
+                  while ((node = walker.nextNode() as Text | null)) {
+                    if (node === range.startContainer) {
+                      textOffset += range.startOffset;
+                      break;
+                    }
+                    textOffset += node.textContent?.length ?? 0;
+                  }
+                }
+              } catch {
+                // fallback: textOffset stays 0
+              }
+
+              // Map text offset to source position (skip leading whitespace in source cell)
+              const cellContent = srcLine.slice(cellStart);
+              const leadingSpaces = cellContent.length - cellContent.trimStart().length;
+              pos = start + lineOffset + cellStart + leadingSpaces + textOffset;
+            } else {
+              pos = start + lineOffset;
+            }
+          } else {
+            // General case: vertical ratio interpolation
+            const rect = target.getBoundingClientRect();
+            const clickY = e.clientY - rect.top;
+            const ratio = Math.max(0, Math.min(1, clickY / rect.height));
+            pos = Math.round(start + (end - start) * ratio);
+          }
+
+          // Calculate where the click was relative to the preview viewport
+          // so the editor scrolls the cursor to the same relative height
+          const previewRect = previewRef!.getBoundingClientRect();
+          const viewportRatio = Math.max(0, Math.min(1, (e.clientY - previewRect.top) / previewRect.height));
+
           suppressPreviewScroll = true;
-          setCursorPosition(start);
+          setCursorPosition(pos);
           if (editorMode() === "highlight" && editorRef) {
-            editorRef.setCursorPosition(start);
+            editorRef.setCursorPosition(pos, viewportRatio);
             editorRef.focus();
           } else if (simpleEditorRef) {
             const text = simpleEditorRef.value;
             let line = 0;
-            for (let i = 0; i < start && i < text.length; i++) {
+            for (let i = 0; i < pos && i < text.length; i++) {
               if (text[i] === "\n") line++;
             }
             const totalLines = text.split("\n").length || 1;
             const lineHeight = simpleEditorRef.scrollHeight / totalLines;
-            const targetTop = Math.max(0, line * lineHeight - simpleEditorRef.clientHeight / 3);
-            simpleEditorRef.setSelectionRange(start, start);
+            const clampedRatio = Math.min(viewportRatio, 0.85);
+            const targetTop = Math.max(0, line * lineHeight - simpleEditorRef.clientHeight * clampedRatio);
+            simpleEditorRef.setSelectionRange(pos, pos);
             simpleEditorRef.focus({ preventScroll: true });
             simpleEditorRef.scrollTop = targetTop;
           }
