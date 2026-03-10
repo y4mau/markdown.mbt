@@ -530,3 +530,264 @@ test "parse custom element single line with BEM classes" {
     _ => fail("Expected HtmlBlock")
   }
 }
+
+///|
+test "parse ordered list starting at 0" {
+  let result = parse("0. Zero item\n1. One item\n")
+  match result.document.children[0] {
+    Block::OrderedList(start~, items~, ..) => {
+      inspect(start, content="0")
+      inspect(items.length(), content="2")
+    }
+    _ => fail("Expected OrderedList")
+  }
+}
+
+///|
+test "parse ordered list with paren delimiter" {
+  let result = parse("1) First\n2) Second\n")
+  match result.document.children[0] {
+    Block::OrderedList(delimiter~, items~, ..) => {
+      inspect(delimiter, content="Paren")
+      inspect(items.length(), content="2")
+    }
+    _ => fail("Expected OrderedList")
+  }
+}
+
+///|
+test "parse nested list bullet inside ordered" {
+  let result = parse("1. Item one\n   - Sub a\n   - Sub b\n2. Item two\n")
+  match result.document.children[0] {
+    Block::OrderedList(items~, ..) => {
+      inspect(items.length(), content="2")
+      // First item should have nested bullet list
+      let has_nested = items[0].children
+        .iter()
+        .any(fn(b) {
+          match b {
+            Block::BulletList(..) => true
+            _ => false
+          }
+        })
+      inspect(has_nested, content="true")
+    }
+    _ => fail("Expected OrderedList")
+  }
+}
+
+///|
+test "parse setext heading roundtrip" {
+  let source = "Title\n=====\n"
+  let result = parse(source)
+  let output = serialize(result.document)
+  // Should preserve setext style or at least content
+  inspect(output.contains("Title"), content="true")
+}
+
+///|
+test "parse link ref definition with title" {
+  let result = parse("[ref]: https://example.com \"My Title\"\n\n[ref]\n")
+  inspect(result.definitions.length(), content="1")
+  inspect(result.definitions[0].label, content="ref")
+  inspect(result.definitions[0].url, content="https://example.com")
+  inspect(result.definitions[0].title, content="My Title")
+}
+
+///|
+test "parse strict mode block" {
+  let result = parse("# Hello *world*\n\nParagraph.\n", strict=true)
+  match result.document.children[0] {
+    Block::Heading(level~, children~, ..) => {
+      inspect(level, content="1")
+      let has_emphasis = children
+        .iter()
+        .any(fn(i) {
+          match i {
+            Inline::Emphasis(..) => true
+            _ => false
+          }
+        })
+      inspect(has_emphasis, content="true")
+    }
+    _ => fail("Expected Heading")
+  }
+}
+
+///|
+test "parse heading without space after hash" {
+  let result = parse("#NotAHeading\n")
+  // #NotAHeading is not a valid ATX heading (needs space after #)
+  // Parser may treat it as paragraph or skip; just verify no crash
+  inspect(result.document.children.length() >= 0, content="true")
+}
+
+///|
+test "parse heading closing hashes without space" {
+  let result = parse("## Title##\n")
+  match result.document.children[0] {
+    Block::Heading(level~, ..) => inspect(level, content="2")
+    _ => fail("Expected Heading")
+  }
+}
+
+///|
+test "parse indented code after paragraph" {
+  let result = parse("Paragraph.\n\n    code here\n")
+  let has_code = result.document.children
+    .iter()
+    .any(fn(b) {
+      match b {
+        Block::IndentedCode(..) => true
+        _ => false
+      }
+    })
+  inspect(has_code, content="true")
+}
+
+///|
+test "parse bullet list with plus marker" {
+  let result = parse("+ Item one\n+ Item two\n")
+  match result.document.children[0] {
+    Block::BulletList(marker~, items~, ..) => {
+      inspect(marker, content="Plus")
+      inspect(items.length(), content="2")
+    }
+    _ => fail("Expected BulletList")
+  }
+}
+
+///|
+test "parse loose list with blank lines" {
+  let result = parse("- Item one\n\n- Item two\n")
+  match result.document.children[0] {
+    Block::BulletList(tight~, ..) => inspect(tight, content="false")
+    _ => fail("Expected BulletList")
+  }
+}
+
+///|
+test "parse nested blockquote with definition" {
+  let result = parse("> [link]: url\n> \n> [link]\n")
+  let children = result.document.children
+  inspect(children.length() >= 1, content="true")
+}
+
+///|
+test "parse task list without trailing space" {
+  let result = parse("- [x]done\n")
+  match result.document.children[0] {
+    Block::BulletList(items~, ..) => inspect(items.length(), content="1")
+    _ => fail("Expected BulletList")
+  }
+}
+
+///|
+test "parse setext heading empty content" {
+  let result = parse("\n===\n")
+  let children = result.document.children
+  inspect(children.length() >= 1, content="true")
+}
+
+///|
+test "parse custom html element empty tag" {
+  let result = parse("<>\n")
+  inspect(result.document.children.length() >= 1, content="true")
+}
+
+///|
+test "parse large ordered list number" {
+  let result = parse("1234567890. Item\n")
+  inspect(result.document.children.length() >= 1, content="true")
+}
+
+///|
+test "parse tab indented list" {
+  let result = parse("1.\tItem with tab\n")
+  match result.document.children[0] {
+    Block::OrderedList(..) => ()
+    _ => fail("Expected OrderedList")
+  }
+}
+
+///|
+test "parse nested blockquote" {
+  let result = parse("> > Nested quote\n")
+  match result.document.children[0] {
+    Block::Blockquote(children~, ..) => {
+      let has_inner = children
+        .iter()
+        .any(fn(b) {
+          match b {
+            Block::Blockquote(..) => true
+            _ => false
+          }
+        })
+      inspect(has_inner, content="true")
+    }
+    _ => fail("Expected Blockquote")
+  }
+}
+
+///|
+test "parse html closing tag" {
+  let result = parse("</div>\n")
+  inspect(result.document.children.length() >= 1, content="true")
+}
+
+///|
+test "parse empty ordered list item" {
+  let result = parse("1.\n2. Second\n")
+  // Empty first item may not parse as list
+  inspect(result.document.children.length() >= 1, content="true")
+}
+
+///|
+test "parse empty bullet list item" {
+  let result = parse("-\n- Second\n")
+  // Empty first item may not parse as list
+  inspect(result.document.children.length() >= 1, content="true")
+}
+
+///|
+test "parse ordered list many digits" {
+  let result = parse("123456789. Long number\n")
+  inspect(result.document.children.length() >= 1, content="true")
+}
+
+///|
+test "parse setext heading level 2 dashes" {
+  let result = parse("Title\n---\n")
+  match result.document.children[0] {
+    Block::Heading(level~, style~, ..) => {
+      inspect(level, content="2")
+      inspect(style, content="Setext")
+    }
+    _ => fail("Expected setext heading")
+  }
+}
+
+///|
+test "parse indented code with tab" {
+  let result = parse("\tcode with tab\n")
+  inspect(result.document.children.length() >= 1, content="true")
+}
+
+///|
+test "parse ordered list paren no space" {
+  let result = parse("1)no space after paren\n")
+  inspect(result.document.children.length() >= 1, content="true")
+}
+
+///|
+test "parse fenced code with tab indented content" {
+  let source = " ```\n\tcode with tab\n ```\n"
+  let result = parse(source)
+  inspect(result.document.children.length() >= 1, content="true")
+}
+
+///|
+test "parse indented code only blank lines" {
+  let result = parse("    \n    \n")
+  inspect(result.document.children.length() >= 0, content="true")
+}

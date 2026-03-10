@@ -39,16 +39,16 @@ jobs:
       - name: Test all
         run: |
           moon test src --target js,native,wasm-gc
-      - name: Moon test
+      - name: Test CommonMark compatibility
         run: |
           moon test src/cmark_tests --target js
-      - name: Moon test
+      - name: Test GFM compatibility
         run: |
           moon test src/gfm_tests --target js
-      - name: Moon test
+      - name: Test HTML rendering
         run: |
           moon test src/html_tests --target js
-      - name: Moon test
+      - name: Test TUI rendering
         run: |
           moon test src/tui --target all
       - name: Test Bench
