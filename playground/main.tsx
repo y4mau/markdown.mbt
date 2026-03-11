@@ -10,11 +10,16 @@ import { MermaidDiagram } from "./MermaidDiagram";
 // IndexedDB for content (reliable async storage)
 const IDB_NAME = "markdown-editor";
 const IDB_STORE = "documents";
-const IDB_KEY = "current";
+const IDB_VERSION = 2;
+const SCRATCH_DOC_ID = "__scratch__";
 
 // localStorage for UI state (sync access for initial render)
 const UI_STATE_KEY = "markdown-editor-ui";
 const DEBOUNCE_DELAY = 300;
+
+function getDocId(filePath: string | null): string {
+  return filePath || SCRATCH_DOC_ID;
+}
 
 const initialMarkdown = `# markdown.mbt Playground
 
@@ -100,38 +105,50 @@ Source: [github.com/y4mau/markdown.mbt](https://github.com/y4mau/markdown.mbt)
 // IndexedDB helpers
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(IDB_NAME, 1);
+    const request = indexedDB.open(IDB_NAME, IDB_VERSION);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result;
       if (!db.objectStoreNames.contains(IDB_STORE)) {
         db.createObjectStore(IDB_STORE);
+      }
+      // Migrate v1 → v2: move "current" key to "__scratch__"
+      if ((event as IDBVersionChangeEvent).oldVersion < 2) {
+        const tx = (event.target as IDBOpenDBRequest).transaction!;
+        const store = tx.objectStore(IDB_STORE);
+        const getReq = store.get("current");
+        getReq.onsuccess = () => {
+          if (getReq.result) {
+            store.put(getReq.result, SCRATCH_DOC_ID);
+            store.delete("current");
+          }
+        };
       }
     };
   });
 }
 
-async function saveToIDB(content: string): Promise<number> {
+async function saveToIDB(docId: string, content: string): Promise<number> {
   const db = await openDB();
   const timestamp = Date.now();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(IDB_STORE, "readwrite");
     const store = tx.objectStore(IDB_STORE);
-    const request = store.put({ content, timestamp }, IDB_KEY);
+    const request = store.put({ content, timestamp }, docId);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(timestamp);
     tx.oncomplete = () => db.close();
   });
 }
 
-async function loadFromIDB(): Promise<{ content: string; timestamp: number } | null> {
+async function loadFromIDB(docId: string): Promise<{ content: string; timestamp: number } | null> {
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(IDB_STORE, "readonly");
       const store = tx.objectStore(IDB_STORE);
-      const request = store.get(IDB_KEY);
+      const request = store.get(docId);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result || null);
       tx.oncomplete = () => db.close();
@@ -506,7 +523,7 @@ function App() {
 
     if (!loadedFromQuery) {
       try {
-        const idbData = await loadFromIDB();
+        const idbData = await loadFromIDB(getDocId(null));
         if (idbData && idbData.content) {
           content = idbData.content;
           timestamp = idbData.timestamp;
@@ -570,7 +587,7 @@ function App() {
       // IDB mode: sync from IndexedDB
       if (hasModified) return;
       try {
-        const idbData = await loadFromIDB();
+        const idbData = await loadFromIDB(getDocId(filePath()));
         if (!idbData) return;
 
         if (idbData.timestamp > lastSyncedTimestamp) {
@@ -611,7 +628,7 @@ function App() {
     setSaveStatusText("Saving...");
 
     // Always save to IDB first
-    saveToIDB(debounced)
+    saveToIDB(getDocId(fp), debounced)
       .then(async (timestamp) => {
         lastSyncedTimestamp = timestamp;
 
