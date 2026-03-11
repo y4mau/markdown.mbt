@@ -26,6 +26,7 @@ This fork adds the following on top of upstream:
 - **Details/summary toggle** — HTML `<details>` / `<summary>` blocks render as collapsible sections
 - **Preview-to-source navigation** — Click preview elements to jump to the corresponding source position; text selection in preview is preserved
 - **Paste URL as link** — Select text and paste a URL to create a `[text](url)` markdown link
+- **Document switcher** — Quick-switch between recently opened files via toolbar popover or `Ctrl+Shift+P`, with per-document storage and dirty-switch confirmation
 
 ## Quick Setup
 
