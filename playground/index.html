@@ -173,6 +173,193 @@
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
     }
 
+    /* Document switcher sidebar */
+    .doc-switcher-sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      overflow-y: auto;
+      display: none;
+      flex-direction: column;
+    }
+
+    .doc-switcher-sidebar.floating {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      bottom: 8px;
+      z-index: 50;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.08);
+      transform: translateX(-110%);
+      opacity: 0;
+      transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+      pointer-events: none;
+    }
+
+    .doc-switcher-sidebar.floating.visible {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    [data-theme="dark"] .doc-switcher-sidebar.floating {
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .doc-switcher-header {
+      padding: 10px 12px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+
+    .doc-switcher-empty {
+      padding: 24px 12px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .doc-switcher-list {
+      padding: 4px 0;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .doc-switcher-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: background-color 0.1s, transform 0.25s ease, opacity 0.25s ease;
+    }
+
+    .doc-switcher-item.flip-move {
+      transition: transform 0.25s ease;
+    }
+
+    .doc-switcher-item.flip-enter {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+
+    .doc-switcher-item.flip-enter-active {
+      opacity: 1;
+      transform: translateX(0);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .doc-switcher-item.flip-exit {
+      opacity: 0;
+      transform: translateX(20px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .doc-switcher-item:hover,
+    .doc-switcher-item.focused {
+      background: var(--bg-tertiary);
+    }
+
+    .doc-switcher-item.active {
+      background: var(--bg-primary);
+    }
+
+    .doc-switcher-item.active::before {
+      content: "";
+      display: block;
+      width: 3px;
+      height: 24px;
+      border-radius: 2px;
+      background: var(--accent-color);
+      flex-shrink: 0;
+    }
+
+    .doc-switcher-item.disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    .doc-switcher-item-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .doc-switcher-item-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .doc-switcher-item-path {
+      font-size: 11px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .doc-switcher-item-remove {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      opacity: 0;
+      flex-shrink: 0;
+      transition: opacity 0.1s, background-color 0.1s, color 0.1s;
+    }
+
+    .doc-switcher-item:hover .doc-switcher-item-remove,
+    .doc-switcher-item.focused .doc-switcher-item-remove {
+      opacity: 1;
+    }
+
+    .doc-switcher-item-remove:hover {
+      background: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    @media (max-width: 768px) {
+      .doc-switcher-sidebar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 50;
+        box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
+      }
+
+      [data-theme="dark"] .doc-switcher-sidebar {
+        box-shadow: 4px 0 16px rgba(0, 0, 0, 0.4);
+      }
+    }
+
+    /* Content area wraps sidebar + main container */
+    .content-area {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
     .container {
       display: flex;
       flex: 1;

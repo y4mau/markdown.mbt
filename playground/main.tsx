@@ -10,11 +10,22 @@ import { MermaidDiagram } from "./MermaidDiagram";
 // IndexedDB for content (reliable async storage)
 const IDB_NAME = "markdown-editor";
 const IDB_STORE = "documents";
-const IDB_KEY = "current";
+const IDB_VERSION = 2;
+const SCRATCH_DOC_ID = "__scratch__";
 
 // localStorage for UI state (sync access for initial render)
 const UI_STATE_KEY = "markdown-editor-ui";
 const DEBOUNCE_DELAY = 300;
+
+const PICKER_PREFIX = "__picker__";
+
+function getDocId(filePath: string | null): string {
+  return filePath || SCRATCH_DOC_ID;
+}
+
+function getPickerDocId(name: string): string {
+  return PICKER_PREFIX + name;
+}
 
 const initialMarkdown = `# markdown.mbt Playground
 
@@ -100,38 +111,50 @@ Source: [github.com/y4mau/markdown.mbt](https://github.com/y4mau/markdown.mbt)
 // IndexedDB helpers
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(IDB_NAME, 1);
+    const request = indexedDB.open(IDB_NAME, IDB_VERSION);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result;
       if (!db.objectStoreNames.contains(IDB_STORE)) {
         db.createObjectStore(IDB_STORE);
+      }
+      // Migrate v1 → v2: move "current" key to "__scratch__"
+      if ((event as IDBVersionChangeEvent).oldVersion < 2) {
+        const tx = (event.target as IDBOpenDBRequest).transaction!;
+        const store = tx.objectStore(IDB_STORE);
+        const getReq = store.get("current");
+        getReq.onsuccess = () => {
+          if (getReq.result) {
+            store.put(getReq.result, SCRATCH_DOC_ID);
+            store.delete("current");
+          }
+        };
       }
     };
   });
 }
 
-async function saveToIDB(content: string): Promise<number> {
+async function saveToIDB(docId: string, content: string): Promise<number> {
   const db = await openDB();
   const timestamp = Date.now();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(IDB_STORE, "readwrite");
     const store = tx.objectStore(IDB_STORE);
-    const request = store.put({ content, timestamp }, IDB_KEY);
+    const request = store.put({ content, timestamp }, docId);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(timestamp);
     tx.oncomplete = () => db.close();
   });
 }
 
-async function loadFromIDB(): Promise<{ content: string; timestamp: number } | null> {
+async function loadFromIDB(docId: string): Promise<{ content: string; timestamp: number } | null> {
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(IDB_STORE, "readonly");
       const store = tx.objectStore(IDB_STORE);
-      const request = store.get(IDB_KEY);
+      const request = store.get(docId);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result || null);
       tx.oncomplete = () => db.close();
@@ -139,6 +162,55 @@ async function loadFromIDB(): Promise<{ content: string; timestamp: number } | n
   } catch {
     return null;
   }
+}
+
+// Recent documents persistence
+interface RecentDoc {
+  path: string | null;
+  name: string;
+  lastOpened: number;
+}
+
+const RECENT_DOCS_KEY = "markdown-editor-recent-docs";
+const MAX_RECENT_DOCS = 20;
+
+function loadRecentDocs(): RecentDoc[] {
+  try {
+    const saved = localStorage.getItem(RECENT_DOCS_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch {
+    // ignore parse errors
+  }
+  return [];
+}
+
+function saveRecentDocs(docs: RecentDoc[]): void {
+  try {
+    localStorage.setItem(RECENT_DOCS_KEY, JSON.stringify(docs));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function addRecentDoc(path: string | null, name: string): RecentDoc[] {
+  const docs = loadRecentDocs();
+  // Remove existing entry for this path/name combo
+  const filtered = docs.filter((d) =>
+    path ? d.path !== path : !(d.path === null && d.name === name)
+  );
+  // Add at front
+  filtered.unshift({ path, name, lastOpened: Date.now() });
+  // Trim to max
+  const trimmed = filtered.slice(0, MAX_RECENT_DOCS);
+  saveRecentDocs(trimmed);
+  return trimmed;
+}
+
+function removeRecentDoc(index: number): RecentDoc[] {
+  const docs = loadRecentDocs();
+  docs.splice(index, 1);
+  saveRecentDocs(docs);
+  return [...docs];
 }
 
 // Mobile detection
@@ -326,7 +398,17 @@ const GITHUB_ICON = `<svg viewBox="0 0 16 16" width="20" height="20" fill="curre
   <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
 </svg>`;
 
+const DOC_LIST_ICON = `<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5">
+  <rect x="3" y="2" width="14" height="16" rx="2"/>
+  <line x1="7" y1="6" x2="13" y2="6"/>
+  <line x1="7" y1="10" x2="13" y2="10"/>
+  <line x1="7" y1="14" x2="11" y2="14"/>
+</svg>`;
 
+const REMOVE_ICON = `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+  <line x1="4" y1="4" x2="12" y2="12"/>
+  <line x1="12" y1="4" x2="4" y2="12"/>
+</svg>`;
 
 function App() {
   // Load UI state synchronously for initial render
@@ -347,6 +429,11 @@ function App() {
   const [isDirty, setIsDirty] = createSignal(false);
   const [viewMode, setViewMode] = createSignal<ViewMode>(initialUIState.viewMode);
   const [editorMode, setEditorMode] = createSignal<EditorMode>(initialUIState.editorMode);
+  const [recentDocs, setRecentDocs] = createSignal<RecentDoc[]>(loadRecentDocs());
+  const [sidebarPinned, setSidebarPinned] = createSignal(false);
+  const [sidebarHover, setSidebarHover] = createSignal(false);
+  const showDocSwitcher = createMemo(() => sidebarPinned() || sidebarHover());
+  const [focusedDocIndex, setFocusedDocIndex] = createSignal(-1);
 
   // Memoized class names for reactivity
   const containerClass = createMemo(() => `container view-${viewMode()} editor-mode-${editorMode()}`);
@@ -370,6 +457,7 @@ function App() {
   let lastSyncedTimestamp = 0;
   let isSaving = false;
   let loadedFromQuery = false;
+  let isSwitchingDoc = false;
 
   // Revision counter for preventing save races
   let saveRevision = 0;
@@ -386,6 +474,122 @@ function App() {
       setDebouncedSource(value);
     }, DEBOUNCE_DELAY);
   });
+
+  // Flush pending debounced save immediately
+  function flushDebounce(): Promise<void> {
+    clearTimeout(debounceTimer);
+    setDebouncedSource(source());
+    // Wait for the save effect to complete by watching saveRevision
+    return new Promise((resolve) => {
+      const checkSaved = () => {
+        if (!isSaving) {
+          resolve();
+        } else {
+          requestAnimationFrame(checkSaved);
+        }
+      };
+      requestAnimationFrame(checkSaved);
+    });
+  }
+
+  // Switch to a different document
+  async function handleDocSwitch(doc: { path: string | null; name: string }): Promise<boolean> {
+    if (isSwitchingDoc) return false;
+
+    // Dirty check: confirm before switching if unsaved changes
+    if (isDirty() && hasModified) {
+      const ok = window.confirm(
+        "You have unsaved changes. Press OK to save and switch, or Cancel to stay."
+      );
+      if (!ok) return false;
+      await flushDebounce();
+    }
+
+    isSwitchingDoc = true;
+    try {
+      let content: string;
+
+      if (doc.path) {
+        // File-mode: fetch from dev server
+        const url = new URL("/__local-file", location.origin);
+        url.searchParams.set("path", doc.path);
+        const res = await fetch(url.href);
+        if (!res.ok) {
+          setSaveStatus("error");
+          setSaveStatusText("File not found");
+          clearTimeout(savedStatusTimer);
+          savedStatusTimer = window.setTimeout(() => {
+            setSaveStatus("idle");
+            setSaveStatusText("");
+          }, 3000);
+          return false;
+        }
+        content = await res.text();
+      } else {
+        // Picker-mode: load from IDB
+        const idbData = await loadFromIDB(getPickerDocId(doc.name));
+        if (!idbData || !idbData.content) {
+          setSaveStatus("error");
+          setSaveStatusText("Not found in storage");
+          clearTimeout(savedStatusTimer);
+          savedStatusTimer = window.setTimeout(() => {
+            setSaveStatus("idle");
+            setSaveStatusText("");
+          }, 3000);
+          return false;
+        }
+        content = idbData.content;
+      }
+
+      batch(() => {
+        setFilePath(doc.path);
+        setSource(content);
+        setAst(parse(content));
+        setIsDirty(false);
+      });
+
+      hasModified = false;
+      loadedFromQuery = !!doc.path;
+      lastSyncedTimestamp = Date.now();
+      document.title = doc.name;
+      setRecentDocs(addRecentDoc(doc.path, doc.name));
+
+      // Update URL without reload
+      if (doc.path) {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set("file", doc.path);
+        history.replaceState(null, "", newUrl.toString());
+      } else {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete("file");
+        history.replaceState(null, "", newUrl.toString());
+      }
+
+      // Sync editor content
+      if (editorMode() === "highlight" && editorRef) {
+        editorRef.setValue(content);
+      } else if (simpleEditorRef) {
+        simpleEditorRef.value = content;
+      }
+
+      setSaveStatus("saved");
+      setSaveStatusText(doc.path ? "Synced" : "Loaded");
+
+      return true;
+    } catch (e) {
+      console.error("Failed to switch document:", e);
+      setSaveStatus("error");
+      setSaveStatusText("Switch failed");
+      clearTimeout(savedStatusTimer);
+      savedStatusTimer = window.setTimeout(() => {
+        setSaveStatus("idle");
+        setSaveStatusText("");
+      }, 3000);
+      return false;
+    } finally {
+      isSwitchingDoc = false;
+    }
+  }
 
   // Derived filename for toolbar display
   const fileName = createMemo(() => {
@@ -459,9 +663,48 @@ function App() {
     });
   };
 
-  // Keyboard shortcuts for view mode
+  // Keyboard shortcuts for view mode and doc switcher
   onMount(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Doc switcher sidebar keyboard nav
+      if (showDocSwitcher()) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setSidebarPinned(false);
+          setSidebarHover(false);
+          setFocusedDocIndex(-1);
+          return;
+        }
+        const docs = recentDocs();
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setFocusedDocIndex((i) => Math.min(i + 1, docs.length - 1));
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setFocusedDocIndex((i) => Math.max(i - 1, 0));
+          return;
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const idx = focusedDocIndex();
+          const doc = docs[idx];
+          if (doc) {
+            handleDocSwitch({ path: doc.path, name: doc.name });
+          }
+          return;
+        }
+      }
+
+      // Ctrl+Shift+P: toggle doc switcher
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "P") {
+        e.preventDefault();
+        setSidebarPinned((v) => !v);
+        setFocusedDocIndex(-1);
+        return;
+      }
+
       if (e.ctrlKey || e.metaKey) {
         if (e.key === "1") {
           e.preventDefault();
@@ -495,7 +738,9 @@ function App() {
           content = await res.text();
           loadedFromQuery = true;
           setFilePath(fileParam);
-          document.title = fileParam.split("/").pop() || fileParam;
+          const docName = fileParam.split("/").pop() || fileParam;
+          document.title = docName;
+          setRecentDocs(addRecentDoc(fileParam, docName));
         } else {
           console.warn(`Failed to load file "${fileParam}": ${res.status} ${res.statusText}`);
         }
@@ -506,7 +751,7 @@ function App() {
 
     if (!loadedFromQuery) {
       try {
-        const idbData = await loadFromIDB();
+        const idbData = await loadFromIDB(getDocId(null));
         if (idbData && idbData.content) {
           content = idbData.content;
           timestamp = idbData.timestamp;
@@ -570,7 +815,7 @@ function App() {
       // IDB mode: sync from IndexedDB
       if (hasModified) return;
       try {
-        const idbData = await loadFromIDB();
+        const idbData = await loadFromIDB(getDocId(filePath()));
         if (!idbData) return;
 
         if (idbData.timestamp > lastSyncedTimestamp) {
@@ -602,6 +847,7 @@ function App() {
     const debounced = debouncedSource();
     if (!isInitialized()) return;
     if (!hasModified) return;
+    if (isSwitchingDoc) return;
 
     const currentRevision = ++saveRevision;
     const fp = filePath();
@@ -611,7 +857,7 @@ function App() {
     setSaveStatusText("Saving...");
 
     // Always save to IDB first
-    saveToIDB(debounced)
+    saveToIDB(getDocId(fp), debounced)
       .then(async (timestamp) => {
         lastSyncedTimestamp = timestamp;
 
@@ -999,12 +1245,22 @@ function App() {
     const reader = new FileReader();
     reader.onload = () => {
       const content = reader.result as string;
-      hasModified = true;
-      setIsDirty(true);
+      hasModified = false;
+      setIsDirty(false);
       batch(() => {
         setSource(content);
         setAst(parse(content));
       });
+      // Sync editor content
+      if (editorMode() === "highlight" && editorRef) {
+        editorRef.setValue(content);
+      } else if (simpleEditorRef) {
+        simpleEditorRef.value = content;
+      }
+      document.title = file.name;
+      // Save to IDB so it can be reopened from sidebar
+      saveToIDB(getPickerDocId(file.name), content);
+      setRecentDocs(addRecentDoc(null, file.name));
     };
     reader.readAsText(file);
     // Reset so the same file can be re-selected
@@ -1049,6 +1305,25 @@ function App() {
         <div class="app-container">
           <header class="toolbar">
             <div class="toolbar-left">
+              <button
+                class="toolbar-action-btn"
+                title="Toggle sidebar (Ctrl+Shift+P)"
+                onClick={() => {
+                  setSidebarPinned((v) => !v);
+                  setFocusedDocIndex(-1);
+                }}
+                onMouseEnter={() => {
+                  clearTimeout((window as any).__sidebarHoverTimer);
+                  if (!sidebarPinned()) setSidebarHover(true);
+                }}
+                onMouseLeave={() => {
+                  (window as any).__sidebarHoverTimer = setTimeout(() => {
+                    setSidebarHover(false);
+                  }, 600);
+                }}
+              >
+                <Icon svg={DOC_LIST_ICON} />
+              </button>
               <div class="view-mode-buttons">
                 {!mobile && (
                   <button
@@ -1122,12 +1397,205 @@ function App() {
             </div>
             <input
               type="file"
-              ref={(el) => { fileInputRef = el; }}
+              ref={(el) => {
+                fileInputRef = el;
+                el.addEventListener("change", handleFileSelect);
+              }}
               accept=".md,.markdown,.txt"
               style={{ display: "none" }}
-              onChange={handleFileSelect}
             />
           </header>
+          <div class="content-area">
+            <div class="doc-switcher-sidebar" ref={(sidebarEl: HTMLDivElement) => {
+              createEffect(() => {
+                const visible = showDocSwitcher();
+                const pinned = sidebarPinned();
+                if (pinned) {
+                  // Pinned: normal flex layout, no animation
+                  sidebarEl.classList.remove("floating", "visible");
+                  sidebarEl.style.display = visible ? "flex" : "none";
+                } else {
+                  // Floating: always display for animation, toggle via class
+                  sidebarEl.classList.add("floating");
+                  sidebarEl.style.display = "flex";
+                  if (visible) {
+                    // Force reflow before adding visible class for enter animation
+                    sidebarEl.offsetHeight;
+                    sidebarEl.classList.add("visible");
+                  } else {
+                    sidebarEl.classList.remove("visible");
+                  }
+                }
+              });
+              sidebarEl.addEventListener("mouseenter", () => {
+                clearTimeout((window as any).__sidebarHoverTimer);
+                if (!sidebarPinned()) setSidebarHover(true);
+              });
+              sidebarEl.addEventListener("mouseleave", () => {
+                if (!sidebarPinned()) setSidebarHover(false);
+              });
+            }}>
+              <div class="doc-switcher-header">Recent Documents</div>
+              <div class="doc-switcher-list" ref={(listEl: HTMLDivElement) => {
+                // Track DOM elements by doc key for FLIP animation
+                const itemMap = new Map<string, HTMLDivElement>();
+
+                function docKey(doc: RecentDoc): string {
+                  return doc.path || `__picker__${doc.name}`;
+                }
+
+                function createItem(doc: RecentDoc, index: number, isActive: boolean, isFocused: boolean): HTMLDivElement {
+                  const item = document.createElement("div");
+                  item.className = [
+                    "doc-switcher-item",
+                    isActive ? "active" : "",
+                    isFocused ? "focused" : "",
+                  ].filter(Boolean).join(" ");
+                  item.dataset.docKey = docKey(doc);
+
+                  if (!isActive) {
+                    item.addEventListener("click", () => {
+                      handleDocSwitch({ path: doc.path, name: doc.name });
+                    });
+                  }
+
+                  const info = document.createElement("div");
+                  info.className = "doc-switcher-item-info";
+
+                  const nameEl = document.createElement("span");
+                  nameEl.className = "doc-switcher-item-name";
+                  nameEl.textContent = doc.name;
+                  info.appendChild(nameEl);
+
+                  const pathEl = document.createElement("span");
+                  pathEl.className = "doc-switcher-item-path";
+                  const displayPath = doc.path || doc.name;
+                  pathEl.textContent = displayPath;
+                  pathEl.title = displayPath;
+                  info.appendChild(pathEl);
+                  item.appendChild(info);
+
+                  const removeBtn = document.createElement("button");
+                  removeBtn.className = "doc-switcher-item-remove";
+                  removeBtn.title = "Remove from list";
+                  removeBtn.innerHTML = `<span style="display:flex;align-items:center">${REMOVE_ICON}</span>`;
+                  removeBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    setRecentDocs(removeRecentDoc(index));
+                  });
+                  item.appendChild(removeBtn);
+
+                  return item;
+                }
+
+                createEffect(() => {
+                  const docs = recentDocs();
+                  const currentPath = filePath();
+                  const focused = focusedDocIndex();
+
+                  if (docs.length === 0) {
+                    itemMap.clear();
+                    listEl.innerHTML = "";
+                    const empty = document.createElement("div");
+                    empty.className = "doc-switcher-empty";
+                    empty.textContent = "No recent documents";
+                    listEl.appendChild(empty);
+                    return;
+                  }
+
+                  // FLIP: First - record current positions
+                  const firstRects = new Map<string, DOMRect>();
+                  itemMap.forEach((el, key) => {
+                    firstRects.set(key, el.getBoundingClientRect());
+                  });
+
+                  const newKeys = new Set(docs.map(docKey));
+                  const removedKeys: string[] = [];
+                  itemMap.forEach((_, key) => {
+                    if (!newKeys.has(key)) removedKeys.push(key);
+                  });
+
+                  // Animate removed items out
+                  removedKeys.forEach((key) => {
+                    const el = itemMap.get(key)!;
+                    el.classList.add("flip-exit");
+                    el.addEventListener("transitionend", () => el.remove(), { once: true });
+                    itemMap.delete(key);
+                  });
+
+                  // Build new list, reusing existing elements
+                  const newItems: HTMLDivElement[] = [];
+                  const enterKeys: string[] = [];
+
+                  docs.forEach((doc, index) => {
+                    const key = docKey(doc);
+                    const isActive = doc.path !== null
+                      ? doc.path === currentPath
+                      : doc.name === document.title && currentPath === null;
+                    const isFocused = focused === index;
+
+                    let item = itemMap.get(key);
+                    if (item) {
+                      // Update classes on existing element
+                      item.className = [
+                        "doc-switcher-item",
+                        isActive ? "active" : "",
+                        isFocused ? "focused" : "",
+                      ].filter(Boolean).join(" ");
+                    } else {
+                      item = createItem(doc, index, isActive, isFocused);
+                      itemMap.set(key, item);
+                      enterKeys.push(key);
+                    }
+                    newItems.push(item);
+                  });
+
+                  // Re-append in new order (moves DOM elements without destroying them)
+                  newItems.forEach((item) => listEl.appendChild(item));
+
+                  // Remove leftover non-doc children (like old empty message)
+                  Array.from(listEl.children).forEach((child) => {
+                    if (!newItems.includes(child as HTMLDivElement) && !removedKeys.some((k) => itemMap.get(k) === child)) {
+                      child.remove();
+                    }
+                  });
+
+                  // FLIP: Last + Invert + Play for moved items
+                  newItems.forEach((item) => {
+                    const key = item.dataset.docKey!;
+                    if (enterKeys.includes(key)) return; // skip new items
+                    const firstRect = firstRects.get(key);
+                    if (!firstRect) return;
+                    const lastRect = item.getBoundingClientRect();
+                    const dy = firstRect.top - lastRect.top;
+                    if (Math.abs(dy) < 1) return; // no movement
+                    item.style.transform = `translateY(${dy}px)`;
+                    item.style.transition = "none";
+                    requestAnimationFrame(() => {
+                      item.classList.add("flip-move");
+                      item.style.transform = "";
+                      item.style.transition = "";
+                      item.addEventListener("transitionend", () => {
+                        item.classList.remove("flip-move");
+                      }, { once: true });
+                    });
+                  });
+
+                  // Animate entering items
+                  enterKeys.forEach((key) => {
+                    const item = itemMap.get(key)!;
+                    item.classList.add("flip-enter");
+                    requestAnimationFrame(() => {
+                      item.classList.remove("flip-enter");
+                      item.classList.add("flip-enter-active");
+                      item.addEventListener("transitionend", () => {
+                        item.classList.remove("flip-enter-active");
+                      }, { once: true });
+                    });
+                  });
+                });
+              }} />
+            </div>
           <div class={containerClass}>
             {/* Editor panel - visibility controlled by CSS class */}
             <div class="editor">
@@ -1162,6 +1630,7 @@ function App() {
                 render(el, <MarkdownRenderer ast={currentAst} callbacks={rendererCallbacks} options={opts} />);
               });
             }} onClick={handlePreviewClick}></div>
+          </div>
           </div>
         </div>
       )}
