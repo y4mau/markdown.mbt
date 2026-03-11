@@ -131,18 +131,6 @@ let new_doc = @markdown.parse_incremental(old_doc, new_text, edit)
 | 50 paragraphs | 327.99µs | 8.67µs | 37.8x |
 | 100 paragraphs | 651.14µs | 15.25µs | 42.7x |
 
-## Playground
-
-### Document Switcher
-
-The playground includes a document switcher for quick navigation between recently opened files:
-
-- **Keyboard shortcut**: `Ctrl+Shift+P` toggles the popover
-- **Keyboard navigation**: `ArrowUp/Down` to move, `Enter` to select, `Esc` to close
-- **Storage**: Recent documents stored in localStorage (`markdown-editor-recent-docs`, max 20)
-- **IDB schema**: Version 2, per-document keys using file path (or `__scratch__` for no-file documents)
-- Files opened via `?file=` are re-openable; file-picker files are tracked but shown as disabled
-
 ## Reference Documentation
 
 - [Architecture](./docs/markdown.md) - Detailed design document
