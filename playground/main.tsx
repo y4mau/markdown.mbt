@@ -426,6 +426,7 @@ function App() {
   })());
   const [saveStatus, setSaveStatus] = createSignal<"saved" | "saving" | "idle" | "error">("idle");
   const [filePath, setFilePath] = createSignal<string | null>(null);
+  const [docName, setDocName] = createSignal<string | null>(null);
   const [isDirty, setIsDirty] = createSignal(false);
   const [viewMode, setViewMode] = createSignal<ViewMode>(initialUIState.viewMode);
   const [editorMode, setEditorMode] = createSignal<EditorMode>(initialUIState.editorMode);
@@ -546,6 +547,7 @@ function App() {
 
       batch(() => {
         setFilePath(doc.path);
+        setDocName(doc.name);
         setSource(content);
         setAst(parse(content));
         setIsDirty(false);
@@ -741,8 +743,9 @@ function App() {
           content = await res.text();
           loadedFromQuery = true;
           setFilePath(fileParam);
-          const docName = fileParam.split("/").pop() || fileParam;
-          document.title = docName;
+          const dn = fileParam.split("/").pop() || fileParam;
+          setDocName(dn);
+          document.title = dn;
           setRecentDocs(addRecentDoc(fileParam, docName));
         } else {
           console.warn(`Failed to load file "${fileParam}": ${res.status} ${res.statusText}`);
@@ -1283,6 +1286,7 @@ function App() {
 
     // Clear file-mode to prevent overwriting the original ?file= path
     setFilePath(null);
+    setDocName(file.name);
     loadedFromQuery = false;
 
     const reader = new FileReader();
@@ -1408,7 +1412,32 @@ function App() {
                   <Icon svg={SIMPLE_ICON} />
                 </button>
               </div>
-              {fileName() ? <span class="file-name">{fileName()}</span> : null}
+              <span class="file-name" ref={(el: HTMLSpanElement) => {
+                createEffect(() => {
+                  const fp = filePath();
+                  const name = docName();
+                  if (!fp && !name) {
+                    el.innerHTML = "";
+                    el.style.display = "none";
+                    return;
+                  }
+                  el.style.display = "";
+                  if (fp) {
+                    el.title = fp;
+                    const lastSlash = fp.lastIndexOf("/");
+                    if (lastSlash === -1) {
+                      el.textContent = fp;
+                    } else {
+                      const dir = fp.substring(0, lastSlash + 1);
+                      const fname = fp.substring(lastSlash + 1);
+                      el.innerHTML = `<span class="file-path-dir">${dir}</span>${fname}`;
+                    }
+                  } else {
+                    el.title = name!;
+                    el.textContent = name!;
+                  }
+                });
+              }}></span>
               <span class="save-status" ref={(el: HTMLSpanElement) => { saveStatusRef = el; }}></span>
             </div>
             <div class="toolbar-actions">
