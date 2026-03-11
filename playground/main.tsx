@@ -1437,64 +1437,161 @@ function App() {
             }}>
               <div class="doc-switcher-header">Recent Documents</div>
               <div class="doc-switcher-list" ref={(listEl: HTMLDivElement) => {
+                // Track DOM elements by doc key for FLIP animation
+                const itemMap = new Map<string, HTMLDivElement>();
+
+                function docKey(doc: RecentDoc): string {
+                  return doc.path || `__picker__${doc.name}`;
+                }
+
+                function createItem(doc: RecentDoc, index: number, isActive: boolean, isFocused: boolean): HTMLDivElement {
+                  const item = document.createElement("div");
+                  item.className = [
+                    "doc-switcher-item",
+                    isActive ? "active" : "",
+                    isFocused ? "focused" : "",
+                  ].filter(Boolean).join(" ");
+                  item.dataset.docKey = docKey(doc);
+
+                  if (!isActive) {
+                    item.addEventListener("click", () => {
+                      handleDocSwitch({ path: doc.path, name: doc.name });
+                    });
+                  }
+
+                  const info = document.createElement("div");
+                  info.className = "doc-switcher-item-info";
+
+                  const nameEl = document.createElement("span");
+                  nameEl.className = "doc-switcher-item-name";
+                  nameEl.textContent = doc.name;
+                  info.appendChild(nameEl);
+
+                  const pathEl = document.createElement("span");
+                  pathEl.className = "doc-switcher-item-path";
+                  const displayPath = doc.path || doc.name;
+                  pathEl.textContent = displayPath;
+                  pathEl.title = displayPath;
+                  info.appendChild(pathEl);
+                  item.appendChild(info);
+
+                  const removeBtn = document.createElement("button");
+                  removeBtn.className = "doc-switcher-item-remove";
+                  removeBtn.title = "Remove from list";
+                  removeBtn.innerHTML = `<span style="display:flex;align-items:center">${REMOVE_ICON}</span>`;
+                  removeBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    setRecentDocs(removeRecentDoc(index));
+                  });
+                  item.appendChild(removeBtn);
+
+                  return item;
+                }
+
                 createEffect(() => {
                   const docs = recentDocs();
                   const currentPath = filePath();
                   const focused = focusedDocIndex();
-                  listEl.innerHTML = "";
+
                   if (docs.length === 0) {
+                    itemMap.clear();
+                    listEl.innerHTML = "";
                     const empty = document.createElement("div");
                     empty.className = "doc-switcher-empty";
                     empty.textContent = "No recent documents";
                     listEl.appendChild(empty);
                     return;
                   }
+
+                  // FLIP: First - record current positions
+                  const firstRects = new Map<string, DOMRect>();
+                  itemMap.forEach((el, key) => {
+                    firstRects.set(key, el.getBoundingClientRect());
+                  });
+
+                  const newKeys = new Set(docs.map(docKey));
+                  const removedKeys: string[] = [];
+                  itemMap.forEach((_, key) => {
+                    if (!newKeys.has(key)) removedKeys.push(key);
+                  });
+
+                  // Animate removed items out
+                  removedKeys.forEach((key) => {
+                    const el = itemMap.get(key)!;
+                    el.classList.add("flip-exit");
+                    el.addEventListener("transitionend", () => el.remove(), { once: true });
+                    itemMap.delete(key);
+                  });
+
+                  // Build new list, reusing existing elements
+                  const newItems: HTMLDivElement[] = [];
+                  const enterKeys: string[] = [];
+
                   docs.forEach((doc, index) => {
+                    const key = docKey(doc);
                     const isActive = doc.path !== null
                       ? doc.path === currentPath
                       : doc.name === document.title && currentPath === null;
                     const isFocused = focused === index;
 
-                    const item = document.createElement("div");
-                    item.className = [
-                      "doc-switcher-item",
-                      isActive ? "active" : "",
-                      isFocused ? "focused" : "",
-                    ].filter(Boolean).join(" ");
-
-                    if (!isActive) {
-                      item.addEventListener("click", () => {
-                        handleDocSwitch({ path: doc.path, name: doc.name });
-                      });
+                    let item = itemMap.get(key);
+                    if (item) {
+                      // Update classes on existing element
+                      item.className = [
+                        "doc-switcher-item",
+                        isActive ? "active" : "",
+                        isFocused ? "focused" : "",
+                      ].filter(Boolean).join(" ");
+                    } else {
+                      item = createItem(doc, index, isActive, isFocused);
+                      itemMap.set(key, item);
+                      enterKeys.push(key);
                     }
+                    newItems.push(item);
+                  });
 
-                    const info = document.createElement("div");
-                    info.className = "doc-switcher-item-info";
+                  // Re-append in new order (moves DOM elements without destroying them)
+                  newItems.forEach((item) => listEl.appendChild(item));
 
-                    const nameEl = document.createElement("span");
-                    nameEl.className = "doc-switcher-item-name";
-                    nameEl.textContent = doc.name;
-                    info.appendChild(nameEl);
+                  // Remove leftover non-doc children (like old empty message)
+                  Array.from(listEl.children).forEach((child) => {
+                    if (!newItems.includes(child as HTMLDivElement) && !removedKeys.some((k) => itemMap.get(k) === child)) {
+                      child.remove();
+                    }
+                  });
 
-                    const pathEl = document.createElement("span");
-                    pathEl.className = "doc-switcher-item-path";
-                    const displayPath = doc.path || doc.name;
-                    pathEl.textContent = displayPath;
-                    pathEl.title = displayPath;
-                    info.appendChild(pathEl);
-                    item.appendChild(info);
-
-                    const removeBtn = document.createElement("button");
-                    removeBtn.className = "doc-switcher-item-remove";
-                    removeBtn.title = "Remove from list";
-                    removeBtn.innerHTML = `<span style="display:flex;align-items:center">${REMOVE_ICON}</span>`;
-                    removeBtn.addEventListener("click", (e) => {
-                      e.stopPropagation();
-                      setRecentDocs(removeRecentDoc(index));
+                  // FLIP: Last + Invert + Play for moved items
+                  newItems.forEach((item) => {
+                    const key = item.dataset.docKey!;
+                    if (enterKeys.includes(key)) return; // skip new items
+                    const firstRect = firstRects.get(key);
+                    if (!firstRect) return;
+                    const lastRect = item.getBoundingClientRect();
+                    const dy = firstRect.top - lastRect.top;
+                    if (Math.abs(dy) < 1) return; // no movement
+                    item.style.transform = `translateY(${dy}px)`;
+                    item.style.transition = "none";
+                    requestAnimationFrame(() => {
+                      item.classList.add("flip-move");
+                      item.style.transform = "";
+                      item.style.transition = "";
+                      item.addEventListener("transitionend", () => {
+                        item.classList.remove("flip-move");
+                      }, { once: true });
                     });
-                    item.appendChild(removeBtn);
+                  });
 
-                    listEl.appendChild(item);
+                  // Animate entering items
+                  enterKeys.forEach((key) => {
+                    const item = itemMap.get(key)!;
+                    item.classList.add("flip-enter");
+                    requestAnimationFrame(() => {
+                      item.classList.remove("flip-enter");
+                      item.classList.add("flip-enter-active");
+                      item.addEventListener("transitionend", () => {
+                        item.classList.remove("flip-enter-active");
+                      }, { once: true });
+                    });
                   });
                 });
               }} />

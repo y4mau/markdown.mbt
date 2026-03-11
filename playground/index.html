@@ -238,7 +238,28 @@
       gap: 8px;
       padding: 6px 12px;
       cursor: pointer;
-      transition: background-color 0.1s;
+      transition: background-color 0.1s, transform 0.25s ease, opacity 0.25s ease;
+    }
+
+    .doc-switcher-item.flip-move {
+      transition: transform 0.25s ease;
+    }
+
+    .doc-switcher-item.flip-enter {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+
+    .doc-switcher-item.flip-enter-active {
+      opacity: 1;
+      transform: translateX(0);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .doc-switcher-item.flip-exit {
+      opacity: 0;
+      transform: translateX(20px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
     }
 
     .doc-switcher-item:hover,
