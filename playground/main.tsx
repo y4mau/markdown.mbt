@@ -387,6 +387,7 @@ function App() {
   let lastSyncedTimestamp = 0;
   let isSaving = false;
   let loadedFromQuery = false;
+  let isSwitchingDoc = false;
 
   // Revision counter for preventing save races
   let saveRevision = 0;
@@ -403,6 +404,97 @@ function App() {
       setDebouncedSource(value);
     }, DEBOUNCE_DELAY);
   });
+
+  // Flush pending debounced save immediately
+  function flushDebounce(): Promise<void> {
+    clearTimeout(debounceTimer);
+    setDebouncedSource(source());
+    // Wait for the save effect to complete by watching saveRevision
+    return new Promise((resolve) => {
+      const checkSaved = () => {
+        if (!isSaving) {
+          resolve();
+        } else {
+          requestAnimationFrame(checkSaved);
+        }
+      };
+      requestAnimationFrame(checkSaved);
+    });
+  }
+
+  // Switch to a different document
+  async function handleDocSwitch(doc: { path: string; name: string }): Promise<boolean> {
+    if (isSwitchingDoc) return false;
+
+    // Dirty check: confirm before switching if unsaved changes
+    if (isDirty() && hasModified) {
+      const ok = window.confirm(
+        "You have unsaved changes. Press OK to save and switch, or Cancel to stay."
+      );
+      if (!ok) return false;
+      await flushDebounce();
+    }
+
+    isSwitchingDoc = true;
+    try {
+      const url = new URL("/__local-file", location.origin);
+      url.searchParams.set("path", doc.path);
+      const res = await fetch(url.href);
+      if (!res.ok) {
+        setSaveStatus("error");
+        setSaveStatusText("File not found");
+        clearTimeout(savedStatusTimer);
+        savedStatusTimer = window.setTimeout(() => {
+          setSaveStatus("idle");
+          setSaveStatusText("");
+        }, 3000);
+        return false;
+      }
+
+      const content = await res.text();
+
+      batch(() => {
+        setFilePath(doc.path);
+        setSource(content);
+        setAst(parse(content));
+        setIsDirty(false);
+      });
+
+      hasModified = false;
+      loadedFromQuery = true;
+      lastSyncedTimestamp = Date.now();
+      document.title = doc.name;
+
+      // Update URL without reload
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set("file", doc.path);
+      history.replaceState(null, "", newUrl.toString());
+
+      // Sync editor content
+      if (editorMode() === "highlight" && editorRef) {
+        editorRef.setValue(content);
+      } else if (simpleEditorRef) {
+        simpleEditorRef.value = content;
+      }
+
+      setSaveStatus("saved");
+      setSaveStatusText("Synced");
+
+      return true;
+    } catch (e) {
+      console.error("Failed to switch document:", e);
+      setSaveStatus("error");
+      setSaveStatusText("Switch failed");
+      clearTimeout(savedStatusTimer);
+      savedStatusTimer = window.setTimeout(() => {
+        setSaveStatus("idle");
+        setSaveStatusText("");
+      }, 3000);
+      return false;
+    } finally {
+      isSwitchingDoc = false;
+    }
+  }
 
   // Derived filename for toolbar display
   const fileName = createMemo(() => {
@@ -619,6 +711,7 @@ function App() {
     const debounced = debouncedSource();
     if (!isInitialized()) return;
     if (!hasModified) return;
+    if (isSwitchingDoc) return;
 
     const currentRevision = ++saveRevision;
     const fp = filePath();
