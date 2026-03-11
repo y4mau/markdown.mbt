@@ -158,6 +158,55 @@ async function loadFromIDB(docId: string): Promise<{ content: string; timestamp:
   }
 }
 
+// Recent documents persistence
+interface RecentDoc {
+  path: string | null;
+  name: string;
+  lastOpened: number;
+}
+
+const RECENT_DOCS_KEY = "markdown-editor-recent-docs";
+const MAX_RECENT_DOCS = 20;
+
+function loadRecentDocs(): RecentDoc[] {
+  try {
+    const saved = localStorage.getItem(RECENT_DOCS_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch {
+    // ignore parse errors
+  }
+  return [];
+}
+
+function saveRecentDocs(docs: RecentDoc[]): void {
+  try {
+    localStorage.setItem(RECENT_DOCS_KEY, JSON.stringify(docs));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function addRecentDoc(path: string | null, name: string): RecentDoc[] {
+  const docs = loadRecentDocs();
+  // Remove existing entry for this path/name combo
+  const filtered = docs.filter((d) =>
+    path ? d.path !== path : !(d.path === null && d.name === name)
+  );
+  // Add at front
+  filtered.unshift({ path, name, lastOpened: Date.now() });
+  // Trim to max
+  const trimmed = filtered.slice(0, MAX_RECENT_DOCS);
+  saveRecentDocs(trimmed);
+  return trimmed;
+}
+
+function removeRecentDoc(index: number): RecentDoc[] {
+  const docs = loadRecentDocs();
+  docs.splice(index, 1);
+  saveRecentDocs(docs);
+  return [...docs];
+}
+
 // Mobile detection
 function isMobile(): boolean {
   return window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -364,6 +413,7 @@ function App() {
   const [isDirty, setIsDirty] = createSignal(false);
   const [viewMode, setViewMode] = createSignal<ViewMode>(initialUIState.viewMode);
   const [editorMode, setEditorMode] = createSignal<EditorMode>(initialUIState.editorMode);
+  const [recentDocs, setRecentDocs] = createSignal<RecentDoc[]>(loadRecentDocs());
 
   // Memoized class names for reactivity
   const containerClass = createMemo(() => `container view-${viewMode()} editor-mode-${editorMode()}`);
@@ -464,6 +514,7 @@ function App() {
       loadedFromQuery = true;
       lastSyncedTimestamp = Date.now();
       document.title = doc.name;
+      setRecentDocs(addRecentDoc(doc.path, doc.name));
 
       // Update URL without reload
       const newUrl = new URL(window.location.href);
@@ -604,7 +655,9 @@ function App() {
           content = await res.text();
           loadedFromQuery = true;
           setFilePath(fileParam);
-          document.title = fileParam.split("/").pop() || fileParam;
+          const docName = fileParam.split("/").pop() || fileParam;
+          document.title = docName;
+          setRecentDocs(addRecentDoc(fileParam, docName));
         } else {
           console.warn(`Failed to load file "${fileParam}": ${res.status} ${res.statusText}`);
         }
@@ -1115,6 +1168,7 @@ function App() {
         setSource(content);
         setAst(parse(content));
       });
+      setRecentDocs(addRecentDoc(null, file.name));
     };
     reader.readAsText(file);
     // Reset so the same file can be re-selected
