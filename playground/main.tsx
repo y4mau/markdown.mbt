@@ -1,7 +1,7 @@
 import { render, createSignal, createEffect, createMemo, onMount, onCleanup, Show, batch } from "@luna_ui/luna";
 import { parse } from "../js/api.js";
 import type { Root } from "mdast";
-import { MarkdownRenderer, RawHtml, sanitizeSvg, type RendererCallbacks, type RendererOptions } from "./ast-renderer";
+import { MarkdownRenderer, RawHtml, sanitizeSvg, setCurrentFilePath, type RendererCallbacks, type RendererOptions } from "./ast-renderer";
 import { SyntaxHighlightEditor, type SyntaxHighlightEditorHandle } from "./SyntaxHighlightEditor";
 import { MoonlightEditor } from "./MoonlightEditor";
 import { handlePasteAsLink } from "./paste-url-as-link";
@@ -434,6 +434,9 @@ function App() {
   const [sidebarHover, setSidebarHover] = createSignal(false);
   const showDocSwitcher = createMemo(() => sidebarPinned() || sidebarHover());
   const [focusedDocIndex, setFocusedDocIndex] = createSignal(-1);
+
+  // Sync file path to renderer for relative URL resolution
+  createEffect(() => setCurrentFilePath(filePath()));
 
   // Memoized class names for reactivity
   const containerClass = createMemo(() => `container view-${viewMode()} editor-mode-${editorMode()}`);

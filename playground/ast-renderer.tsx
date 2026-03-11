@@ -95,13 +95,25 @@ export interface RendererOptions {
   _headingSections?: Map<string, HeadingSectionRange>;
 }
 
+// Rewrite relative src/href attributes in raw HTML to use the local asset endpoint
+function rewriteRelativeUrls(html: string): string {
+  if (!_currentFilePath) return html;
+  return html.replace(
+    /(\s(?:src|href)=["'])(\.[^"']*)(["'])/gi,
+    (_, prefix, url, suffix) => {
+      const resolved = resolveAssetUrl(url);
+      return `${prefix}${resolved}${suffix}`;
+    }
+  );
+}
+
 // Helper component to render raw HTML using ref callback (exported for custom handlers)
 export function RawHtml({ html, ...props }: { html: string } & Record<string, unknown>) {
   return (
     <div
       {...props}
       ref={(el) => {
-        if (el) el.innerHTML = html;
+        if (el) el.innerHTML = rewriteRelativeUrls(html);
       }}
     />
   );
@@ -188,7 +200,7 @@ function RawHtmlSpan({ html, ...props }: { html: string } & Record<string, unkno
     <span
       {...props}
       ref={(el) => {
-        if (el) el.innerHTML = html;
+        if (el) el.innerHTML = rewriteRelativeUrls(html);
       }}
     />
   );
@@ -478,6 +490,29 @@ function renderTableCell(
   );
 }
 
+// Module-level current file path for resolving relative URLs
+let _currentFilePath: string | null = null;
+
+export function setCurrentFilePath(fp: string | null): void {
+  _currentFilePath = fp;
+}
+
+// Resolve a relative URL against the current file's directory via the local asset endpoint
+function resolveAssetUrl(url: string): string {
+  if (!_currentFilePath) return url;
+  if (/^(https?:\/\/|data:|blob:|#|\/)/.test(url)) return url;
+  const dir = _currentFilePath.substring(0, _currentFilePath.lastIndexOf("/"));
+  const parts = `${dir}/${url}`.split("/");
+  const resolved: string[] = [];
+  for (const part of parts) {
+    if (part === "." || part === "") continue;
+    if (part === "..") { resolved.pop(); continue; }
+    resolved.push(part);
+  }
+  const absolutePath = "/" + resolved.join("/");
+  return `/__local-asset?path=${encodeURIComponent(absolutePath)}`;
+}
+
 // Inline renderer
 export function renderInline(inline: PhrasingContent, key?: string | number): JSX.Element | string | null {
   switch (inline.type) {
@@ -534,7 +569,7 @@ export function renderInline(inline: PhrasingContent, key?: string | number): JS
       return (
         <img
           key={key}
-          src={inline.url}
+          src={resolveAssetUrl(inline.url)}
           alt={inline.alt ?? ""}
           {...(inline.title ? { title: inline.title } : {})}
         />

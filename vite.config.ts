@@ -2,6 +2,17 @@ import { defineConfig, type Plugin } from "vite";
 import path from "path";
 import fs from "fs";
 
+const ASSET_MIME_TYPES: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".webp": "image/webp",
+  ".ico": "image/x-icon",
+  ".bmp": "image/bmp",
+};
+
 function localFilePlugin(): Plugin {
   const projectRoot = __dirname;
   const ALLOWED_EXTENSIONS = new Set([".md", ".markdown", ".txt"]);
@@ -140,6 +151,39 @@ function localFilePlugin(): Plugin {
         res.statusCode = 405;
         res.setHeader("Allow", "GET, POST");
         res.end("Method not allowed");
+      });
+
+      // Serve local image assets referenced by markdown files
+      server.middlewares.use((req, res, next) => {
+        const url = new URL(req.url!, `http://${req.headers.host}`);
+        if (url.pathname !== "/__local-asset" || req.method !== "GET") return next();
+
+        const filePath = url.searchParams.get("path");
+        if (!filePath || !filePath.trim() || filePath.includes("\0")) {
+          res.statusCode = 400;
+          res.end("Missing or invalid path parameter");
+          return;
+        }
+        const resolved = path.isAbsolute(filePath)
+          ? filePath
+          : path.resolve(projectRoot, filePath);
+        const ext = path.extname(resolved).toLowerCase();
+        const mime = ASSET_MIME_TYPES[ext];
+        if (!mime) {
+          res.statusCode = 403;
+          res.end("Forbidden: file type not allowed");
+          return;
+        }
+        try {
+          const data = fs.readFileSync(resolved);
+          res.setHeader("Content-Type", mime);
+          res.setHeader("Cache-Control", "public, max-age=300");
+          res.statusCode = 200;
+          res.end(data);
+        } catch {
+          res.statusCode = 404;
+          res.end("File not found");
+        }
       });
     },
   };
