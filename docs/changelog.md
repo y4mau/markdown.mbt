@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-03-11: Document Switcher
+
+### Changes
+
+- Add document switcher popover to playground toolbar for quick navigation between recently opened files
+- Per-document IndexedDB storage (schema v2) so content is preserved per file path
+- IDB migration from v1: existing `"current"` record moves to `"__scratch__"` key
+- Recent documents persisted in localStorage (max 20 entries)
+- Keyboard shortcut `Ctrl+Shift+P` to toggle, `ArrowUp/Down`, `Enter`, `Esc` for navigation
+- Dirty-switch confirmation prevents accidental data loss when switching documents
+- File-picker-only entries shown as disabled (not re-openable due to browser security)
+
+### New Storage Keys
+
+| Key | Storage | Purpose |
+|-----|---------|---------|
+| `markdown-editor-recent-docs` | localStorage | Recent documents list |
+| IDB `documents` store (v2) | IndexedDB | Per-document content keyed by file path |
+
 ## 2025-12-19: Unicode (non-BMP) support for Scanner
 
 **Commits:** `a616f73`, `8d99c3a`
