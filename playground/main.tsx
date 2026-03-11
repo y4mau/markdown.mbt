@@ -1096,8 +1096,48 @@ function App() {
   });
 
 
+  // Resolve relative markdown links to absolute paths based on current file
+  const MARKDOWN_EXTENSIONS = [".md", ".markdown", ".txt"];
+
+  function resolveRelativeLink(href: string): string | null {
+    const fp = filePath();
+    if (!fp) return null;
+    // Only handle relative paths (not http(s), not anchors, not absolute)
+    if (/^(https?:\/\/|#|\/)/.test(href)) return null;
+    // Only handle markdown files
+    const ext = href.replace(/[?#].*$/, "").split(".").pop();
+    if (!ext || !MARKDOWN_EXTENSIONS.includes(`.${ext}`)) return null;
+    // Resolve against the directory of the current file
+    const dir = fp.substring(0, fp.lastIndexOf("/"));
+    // Normalize . and .. segments
+    const parts = `${dir}/${href.replace(/[?#].*$/, "")}`.split("/");
+    const resolved: string[] = [];
+    for (const part of parts) {
+      if (part === "." || part === "") continue;
+      if (part === "..") { resolved.pop(); continue; }
+      resolved.push(part);
+    }
+    return "/" + resolved.join("/");
+  }
+
   // Preview → source click handler
   const handlePreviewClick = (e: MouseEvent) => {
+    // Intercept clicks on relative markdown links
+    const anchor = (e.target as HTMLElement).closest("a");
+    if (anchor) {
+      const href = anchor.getAttribute("href");
+      if (href) {
+        const resolved = resolveRelativeLink(href);
+        if (resolved) {
+          e.preventDefault();
+          e.stopPropagation();
+          const name = resolved.split("/").pop() || resolved;
+          handleDocSwitch({ path: resolved, name });
+          return;
+        }
+      }
+    }
+
     // If user selected text in preview, don't steal focus to editor
     const selection = window.getSelection();
     if (selection && selection.toString().length > 0) return;
