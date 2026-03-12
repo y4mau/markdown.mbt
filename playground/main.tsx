@@ -746,7 +746,7 @@ function App() {
           const dn = fileParam.split("/").pop() || fileParam;
           setDocName(dn);
           document.title = dn;
-          setRecentDocs(addRecentDoc(fileParam, docName));
+          setRecentDocs(addRecentDoc(fileParam, dn));
         } else {
           console.warn(`Failed to load file "${fileParam}": ${res.status} ${res.statusText}`);
         }
