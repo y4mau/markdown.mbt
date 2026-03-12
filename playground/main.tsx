@@ -1102,6 +1102,13 @@ function App() {
   });
 
 
+  // Listen for HMR event to reuse existing tab
+  if (import.meta.hot) {
+    import.meta.hot.on("markdown:open-file", (data: { path: string; name: string }) => {
+      handleDocSwitch({ path: data.path, name: data.name });
+    });
+  }
+
   // Resolve relative markdown links to absolute paths based on current file
   const MARKDOWN_EXTENSIONS = [".md", ".markdown", ".txt"];
 
