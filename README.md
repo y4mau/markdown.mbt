@@ -48,6 +48,7 @@ This fork adds the following on top of upstream:
 git clone https://github.com/y4mau/markdown.mbt.git
 cd markdown.mbt
 pnpm install
+moon update                                       # Fetch MoonBit dependencies
 moon build --target js
 ./scripts/install-mdpreview.sh                    # Install skill + shell function
 source ~/.bashrc
@@ -62,6 +63,7 @@ open http://localhost:5173/?file=$PWD/README.md   # Preview README
 git clone https://github.com/y4mau/markdown.mbt.git
 cd markdown.mbt
 pnpm install
+moon update                                       # Fetch MoonBit dependencies
 moon build --target js
 .\scripts\install-mdpreview.ps1                   # Install skill + shell function
 Start-Process pnpm "exec vite"                    # Start dev server in background
