@@ -1102,6 +1102,13 @@ function App() {
   });
 
 
+  // Listen for HMR event to reuse existing tab
+  if (import.meta.hot) {
+    import.meta.hot.on("markdown:open-file", (data: { path: string; name: string }) => {
+      handleDocSwitch({ path: data.path, name: data.name });
+    });
+  }
+
   // Resolve relative markdown links to absolute paths based on current file
   const MARKDOWN_EXTENSIONS = [".md", ".markdown", ".txt"];
 
@@ -1504,7 +1511,11 @@ function App() {
                 if (!sidebarPinned()) setSidebarHover(true);
               });
               sidebarEl.addEventListener("mouseleave", () => {
-                if (!sidebarPinned()) setSidebarHover(false);
+                if (!sidebarPinned()) {
+                  (window as any).__sidebarHoverTimer = setTimeout(() => {
+                    setSidebarHover(false);
+                  }, 600);
+                }
               });
             }}>
               <div class="doc-switcher-header">Recent Documents</div>
@@ -1516,7 +1527,40 @@ function App() {
                   return doc.path || `__picker__${doc.name}`;
                 }
 
-                function createItem(doc: RecentDoc, index: number, isActive: boolean, isFocused: boolean): HTMLDivElement {
+                // Event delegation: handle clicks on the list container
+                listEl.addEventListener("click", (e) => {
+                  const target = e.target as HTMLElement;
+
+                  // Handle remove button click
+                  const removeBtn = target.closest(".doc-switcher-item-remove") as HTMLElement | null;
+                  if (removeBtn) {
+                    e.stopPropagation();
+                    const item = removeBtn.closest(".doc-switcher-item") as HTMLElement | null;
+                    if (!item) return;
+                    const key = item.dataset.docKey;
+                    if (!key) return;
+                    // Find current index by key at click time (not stale closure)
+                    const docs = recentDocs();
+                    const idx = docs.findIndex((d) => docKey(d) === key);
+                    if (idx !== -1) {
+                      setRecentDocs(removeRecentDoc(idx));
+                    }
+                    return;
+                  }
+
+                  // Handle item click (doc switch) - only for non-active items
+                  const item = target.closest(".doc-switcher-item") as HTMLElement | null;
+                  if (!item || item.classList.contains("active")) return;
+                  const key = item.dataset.docKey;
+                  if (!key) return;
+                  const docs = recentDocs();
+                  const doc = docs.find((d) => docKey(d) === key);
+                  if (doc) {
+                    handleDocSwitch({ path: doc.path, name: doc.name });
+                  }
+                });
+
+                function createItem(doc: RecentDoc, isActive: boolean, isFocused: boolean): HTMLDivElement {
                   const item = document.createElement("div");
                   item.className = [
                     "doc-switcher-item",
@@ -1524,12 +1568,6 @@ function App() {
                     isFocused ? "focused" : "",
                   ].filter(Boolean).join(" ");
                   item.dataset.docKey = docKey(doc);
-
-                  if (!isActive) {
-                    item.addEventListener("click", () => {
-                      handleDocSwitch({ path: doc.path, name: doc.name });
-                    });
-                  }
 
                   const info = document.createElement("div");
                   info.className = "doc-switcher-item-info";
@@ -1551,10 +1589,6 @@ function App() {
                   removeBtn.className = "doc-switcher-item-remove";
                   removeBtn.title = "Remove from list";
                   removeBtn.innerHTML = `<span style="display:flex;align-items:center">${REMOVE_ICON}</span>`;
-                  removeBtn.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    setRecentDocs(removeRecentDoc(index));
-                  });
                   item.appendChild(removeBtn);
 
                   return item;
@@ -1615,7 +1649,7 @@ function App() {
                         isFocused ? "focused" : "",
                       ].filter(Boolean).join(" ");
                     } else {
-                      item = createItem(doc, index, isActive, isFocused);
+                      item = createItem(doc, isActive, isFocused);
                       itemMap.set(key, item);
                       enterKeys.push(key);
                     }
