@@ -22,6 +22,8 @@ CST-based incremental Markdown parser for JavaScript/MoonBit.
 This fork adds the following on top of upstream:
 
 - **Playground with local file I/O** — Load local `.md` files via `?file=<path>`, auto-save with status indicator, sync on window focus
+- **Floating document switcher** — Sidebar with recent documents list, FLIP-animated reordering, file picker upload, and keyboard navigation (`Ctrl+Shift+P`)
+- **Relative path resolution** — Markdown links and images using relative paths (e.g. `./docs/arch.md`, `./img/screenshot.png`) resolve correctly in preview
 - **Copy-to-clipboard** — Copy entire document from toolbar, per-code-block copy, and per-heading section copy (hover heading to reveal, section highlights on hover)
 - **Mermaid diagram rendering** — Fenced code blocks with `mermaid` language render as diagrams with zoom/pan controls
 - **Details/summary toggle** — HTML `<details>` / `<summary>` blocks render as collapsible sections
