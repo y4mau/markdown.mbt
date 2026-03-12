@@ -1,7 +1,7 @@
 import { render, createSignal, createEffect, createMemo, onMount, onCleanup, Show, batch } from "@luna_ui/luna";
 import { parse } from "../js/api.js";
 import type { Root } from "mdast";
-import { MarkdownRenderer, RawHtml, sanitizeSvg, type RendererCallbacks, type RendererOptions } from "./ast-renderer";
+import { MarkdownRenderer, RawHtml, sanitizeSvg, setCurrentFilePath, type RendererCallbacks, type RendererOptions } from "./ast-renderer";
 import { SyntaxHighlightEditor, type SyntaxHighlightEditorHandle } from "./SyntaxHighlightEditor";
 import { MoonlightEditor } from "./MoonlightEditor";
 import { handlePasteAsLink } from "./paste-url-as-link";
@@ -426,6 +426,7 @@ function App() {
   })());
   const [saveStatus, setSaveStatus] = createSignal<"saved" | "saving" | "idle" | "error">("idle");
   const [filePath, setFilePath] = createSignal<string | null>(null);
+  const [docName, setDocName] = createSignal<string | null>(null);
   const [isDirty, setIsDirty] = createSignal(false);
   const [viewMode, setViewMode] = createSignal<ViewMode>(initialUIState.viewMode);
   const [editorMode, setEditorMode] = createSignal<EditorMode>(initialUIState.editorMode);
@@ -434,6 +435,9 @@ function App() {
   const [sidebarHover, setSidebarHover] = createSignal(false);
   const showDocSwitcher = createMemo(() => sidebarPinned() || sidebarHover());
   const [focusedDocIndex, setFocusedDocIndex] = createSignal(-1);
+
+  // Sync file path to renderer for relative URL resolution
+  createEffect(() => setCurrentFilePath(filePath()));
 
   // Memoized class names for reactivity
   const containerClass = createMemo(() => `container view-${viewMode()} editor-mode-${editorMode()}`);
@@ -543,6 +547,7 @@ function App() {
 
       batch(() => {
         setFilePath(doc.path);
+        setDocName(doc.name);
         setSource(content);
         setAst(parse(content));
         setIsDirty(false);
@@ -738,9 +743,10 @@ function App() {
           content = await res.text();
           loadedFromQuery = true;
           setFilePath(fileParam);
-          const docName = fileParam.split("/").pop() || fileParam;
-          document.title = docName;
-          setRecentDocs(addRecentDoc(fileParam, docName));
+          const dn = fileParam.split("/").pop() || fileParam;
+          setDocName(dn);
+          document.title = dn;
+          setRecentDocs(addRecentDoc(fileParam, dn));
         } else {
           console.warn(`Failed to load file "${fileParam}": ${res.status} ${res.statusText}`);
         }
@@ -1096,8 +1102,48 @@ function App() {
   });
 
 
+  // Resolve relative markdown links to absolute paths based on current file
+  const MARKDOWN_EXTENSIONS = [".md", ".markdown", ".txt"];
+
+  function resolveRelativeLink(href: string): string | null {
+    const fp = filePath();
+    if (!fp) return null;
+    // Only handle relative paths (not http(s), not anchors, not absolute)
+    if (/^(https?:\/\/|#|\/)/.test(href)) return null;
+    // Only handle markdown files
+    const ext = href.replace(/[?#].*$/, "").split(".").pop();
+    if (!ext || !MARKDOWN_EXTENSIONS.includes(`.${ext}`)) return null;
+    // Resolve against the directory of the current file
+    const dir = fp.substring(0, fp.lastIndexOf("/"));
+    // Normalize . and .. segments
+    const parts = `${dir}/${href.replace(/[?#].*$/, "")}`.split("/");
+    const resolved: string[] = [];
+    for (const part of parts) {
+      if (part === "." || part === "") continue;
+      if (part === "..") { resolved.pop(); continue; }
+      resolved.push(part);
+    }
+    return "/" + resolved.join("/");
+  }
+
   // Preview → source click handler
   const handlePreviewClick = (e: MouseEvent) => {
+    // Intercept clicks on relative markdown links
+    const anchor = (e.target as HTMLElement).closest("a");
+    if (anchor) {
+      const href = anchor.getAttribute("href");
+      if (href) {
+        const resolved = resolveRelativeLink(href);
+        if (resolved) {
+          e.preventDefault();
+          e.stopPropagation();
+          const name = resolved.split("/").pop() || resolved;
+          handleDocSwitch({ path: resolved, name });
+          return;
+        }
+      }
+    }
+
     // If user selected text in preview, don't steal focus to editor
     const selection = window.getSelection();
     if (selection && selection.toString().length > 0) return;
@@ -1240,6 +1286,7 @@ function App() {
 
     // Clear file-mode to prevent overwriting the original ?file= path
     setFilePath(null);
+    setDocName(file.name);
     loadedFromQuery = false;
 
     const reader = new FileReader();
@@ -1365,7 +1412,32 @@ function App() {
                   <Icon svg={SIMPLE_ICON} />
                 </button>
               </div>
-              {fileName() ? <span class="file-name">{fileName()}</span> : null}
+              <span class="file-name" ref={(el: HTMLSpanElement) => {
+                createEffect(() => {
+                  const fp = filePath();
+                  const name = docName();
+                  if (!fp && !name) {
+                    el.innerHTML = "";
+                    el.style.display = "none";
+                    return;
+                  }
+                  el.style.display = "";
+                  if (fp) {
+                    el.title = fp;
+                    const lastSlash = fp.lastIndexOf("/");
+                    if (lastSlash === -1) {
+                      el.textContent = fp;
+                    } else {
+                      const dir = fp.substring(0, lastSlash + 1);
+                      const fname = fp.substring(lastSlash + 1);
+                      el.innerHTML = `<span class="file-path-dir">${dir}</span>${fname}`;
+                    }
+                  } else {
+                    el.title = name!;
+                    el.textContent = name!;
+                  }
+                });
+              }}></span>
               <span class="save-status" ref={(el: HTMLSpanElement) => { saveStatusRef = el; }}></span>
             </div>
             <div class="toolbar-actions">
