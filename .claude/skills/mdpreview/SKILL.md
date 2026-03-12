@@ -35,7 +35,14 @@ cd ~/ghq/github.com/y4mau/markdown.mbt && nohup pnpm vite > /dev/null 2>&1 &
 
    Then wait a few seconds and retry the health check. If it still fails, ask the user to start the server manually.
 
-4. Open in the browser:
+4. Try to reuse an existing playground tab first:
+
+```bash
+curl -s "http://localhost:5173/__open?file=<absolute-path>"
+```
+
+   - If the response contains `"delivered":true`, the file was opened in the existing tab — done.
+   - If `"delivered":false` or curl fails, fall back to opening a new tab:
 
 ```bash
 # WSL
