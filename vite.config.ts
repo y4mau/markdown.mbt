@@ -153,6 +153,37 @@ function localFilePlugin(): Plugin {
         res.end("Method not allowed");
       });
 
+      // Tab reuse: broadcast HMR event to open a file in existing tab
+      server.middlewares.use((req, res, next) => {
+        const url = new URL(req.url!, `http://${req.headers.host}`);
+        if (url.pathname !== "/__open" || req.method !== "GET") return next();
+
+        const result = validatePath(url.searchParams.get("file"));
+        if ("error" in result) {
+          res.statusCode = result.status;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ delivered: false, error: result.error }));
+          return;
+        }
+        if (!fs.existsSync(result.resolved)) {
+          res.statusCode = 404;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ delivered: false, error: "File not found" }));
+          return;
+        }
+        const name = path.basename(result.resolved);
+        if (server.ws.clients.size > 0) {
+          server.ws.send("markdown:open-file", { path: result.resolved, name });
+          res.setHeader("Content-Type", "application/json");
+          res.statusCode = 200;
+          res.end(JSON.stringify({ delivered: true }));
+        } else {
+          res.setHeader("Content-Type", "application/json");
+          res.statusCode = 200;
+          res.end(JSON.stringify({ delivered: false }));
+        }
+      });
+
       // Serve local image assets referenced by markdown files
       server.middlewares.use((req, res, next) => {
         const url = new URL(req.url!, `http://${req.headers.host}`);
