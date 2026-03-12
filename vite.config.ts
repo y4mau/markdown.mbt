@@ -195,6 +195,11 @@ export default defineConfig({
     jsxImportSource: "@luna_ui/luna",
   },
   root: "playground",
+  server: {
+    fs: {
+      allow: [__dirname],
+    },
+  },
   resolve: {
     alias: {
       "@mizchi/moonlight": path.resolve(__dirname, "playground/moonlight-stub.ts"),
