@@ -809,6 +809,25 @@
       padding: 0;
     }
 
+    /* Diff line highlighting for code blocks */
+    .preview pre code:has(> .diff-line) {
+      display: block;
+      width: max-content;
+      min-width: 100%;
+    }
+
+    .preview .diff-line {
+      display: block;
+    }
+
+    .preview .diff-line-add {
+      background-color: rgba(63, 185, 80, 0.15);
+    }
+
+    .preview .diff-line-remove {
+      background-color: rgba(248, 81, 73, 0.15);
+    }
+
     .preview ul, .preview ol {
       padding-left: 2em;
       margin-bottom: 16px;
