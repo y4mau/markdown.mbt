@@ -97,10 +97,8 @@ describe("applyDiffHighlighting", () => {
     expect(result).toContain('class="line diff-line diff-line-add"');
     expect(result).toContain('class="line diff-line diff-line-remove"');
     // The context line should have just diff-line
-    const lines = result.split("\n");
-    expect(lines[2]).toContain('class="line diff-line"');
-    expect(lines[2]).not.toContain("diff-line-add");
-    expect(lines[2]).not.toContain("diff-line-remove");
+    const contextMatch = result.match(/class="line diff-line">[^<]*<span[^>]*> context<\/span>/);
+    expect(contextMatch).not.toBeNull();
   });
 
   it("preserves existing HTML structure (nested spans)", () => {

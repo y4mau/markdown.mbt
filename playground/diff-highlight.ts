@@ -25,7 +25,7 @@ export function renderDiffPlain(code: string): string {
     const cls = diffLineClass(line);
     return `<span class="${cls}"><span>${escaped}</span></span>`;
   });
-  return `<pre class="highlight" style="background-color: #0d1117; color: #c9d1d9"><code>${lineSpans.join("\n")}</code></pre>`;
+  return `<pre class="highlight" style="background-color: #0d1117; color: #c9d1d9"><code>${lineSpans.join("")}</code></pre>`;
 }
 
 /**
@@ -47,7 +47,7 @@ export function applyDiffHighlighting(html: string): string {
     return line.replace('<span class="line">', `<span class="${cls}">`);
   });
 
-  return prefix + processedLines.join("\n") + suffix;
+  return prefix + processedLines.join("") + suffix;
 }
 
 function diffLineClass(text: string): string {
