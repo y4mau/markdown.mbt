@@ -810,6 +810,12 @@
     }
 
     /* Diff line highlighting for code blocks */
+    .preview pre code:has(> .diff-line) {
+      display: block;
+      width: max-content;
+      min-width: 100%;
+    }
+
     .preview .diff-line {
       display: block;
     }
