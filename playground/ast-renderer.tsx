@@ -11,7 +11,6 @@ import type {
 import type { Position } from "unist";
 // @ts-ignore - no type declarations for syntree_api.js
 import { highlight } from "../js/syntree_api.js";
-import { renderDiffPlain, applyDiffHighlighting } from "./diff-highlight";
 
 // =============================================================================
 // SVG Sanitizer
@@ -293,6 +292,7 @@ export function renderBlock(
       const langString = block.lang ?? "";
       const { lang, mode } = parseCodeBlockLang(langString);
       const span = getSpan(block);
+
       // Check for custom handler first (supports both "svg" and "svg:preview")
       // Handler can return null to fall through to default highlighting
       const handler = options?.codeBlockHandlers?.[lang];
@@ -303,31 +303,16 @@ export function renderBlock(
         }
       }
 
-      // Standalone diff language (no syntax highlighting, just diff line coloring)
-      if (lang === "diff" && !mode) {
-        return (
-          <CodeBlock code={block.value} key={key}>
-            <RawHtml data-span={span} html={renderDiffPlain(block.value)} />
-          </CodeBlock>
-        );
-      }
-
       const highlighted = lang ? highlightCode(block.value, lang) : null;
 
       if (highlighted) {
-        const finalHtml = mode === "diff" ? applyDiffHighlighting(highlighted) : highlighted;
+        // Use highlighted HTML from syntree (highlight format)
         return (
           <CodeBlock code={block.value} key={key}>
-            <RawHtml data-span={span} html={finalHtml} />
-          </CodeBlock>
-        );
-      }
-
-      // Fallback: diff mode but language not supported for syntax highlighting
-      if (mode === "diff") {
-        return (
-          <CodeBlock code={block.value} key={key}>
-            <RawHtml data-span={span} html={renderDiffPlain(block.value)} />
+            <RawHtml
+              data-span={span}
+              html={highlighted}
+            />
           </CodeBlock>
         );
       }
