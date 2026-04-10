@@ -24,17 +24,17 @@
     "@playwright/test": "^1.57.0",
     "@types/mdast": "^4.0.4",
     "@types/unist": "^3.0.3",
-    "mermaid": "^11.13.0",
+    "mermaid": "^11.14.0",
     "playwright": "^1.57.0",
-    "preact": "^10.28.0",
-    "puppeteer": "^24.38.0",
+    "preact": "^10.29.1",
+    "puppeteer": "^24.40.0",
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "remark-html": "^16.0.1",
     "remark-stringify": "^11.0.0",
     "typescript": "^5.9.3",
     "unified": "^11.0.5",
-    "vite": "^7.3.1",
+    "vite": "^7.3.2",
     "vite-plugin-moonbit": "0.1.2",
     "vitest": "^4.0.16"
   },
@@ -44,9 +44,12 @@
   ],
   "pnpm": {
     "overrides": {
+      "basic-ftp": ">=5.2.1",
       "dompurify": ">=3.3.2",
-      "rollup": ">=4.59.0",
-      "basic-ftp": ">=5.2.0"
+      "lodash": ">=4.18.0",
+      "lodash-es": ">=4.18.0",
+      "picomatch": ">=4.0.4",
+      "rollup": ">=4.59.0"
     }
   }
 }
