@@ -37,6 +37,13 @@ function diffLineCssClass(type: DiffLineType): string {
   }
 }
 
+function gutterHtml(type: DiffLineType): string {
+  if (type === "add") return '<span class="diff-gutter">+</span>';
+  if (type === "remove") return '<span class="diff-gutter">-</span>';
+  if (type === "context") return '<span class="diff-gutter"> </span>';
+  return "";
+}
+
 export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
@@ -54,8 +61,10 @@ export function renderDiffPlain(code: string): string {
   const lineSpans = lines.map((line) => {
     const type = classifyDiffLine(line);
     const cls = diffLineCssClass(type);
-    const escaped = escapeHtml(line);
-    return `<span class="${cls}"><span>${escaped}</span></span>`;
+    const gutter = gutterHtml(type);
+    const hasPrefix = type === "add" || type === "remove" || type === "context";
+    const content = hasPrefix ? line.slice(1) : line;
+    return `<span class="${cls}">${gutter}<span>${escapeHtml(content)}</span></span>`;
   });
   return `<pre class="highlight" style="background-color: #0d1117; color: #c9d1d9"><code>${lineSpans.join("")}</code></pre>`;
 }
@@ -79,7 +88,28 @@ export function applyDiffHighlighting(html: string): string {
     const textContent = line.replace(/<[^>]+>/g, "");
     const type = classifyDiffLine(textContent);
     const cls = diffLineCssClass(type);
-    return line.replace('<span class="line">', `<span class="${cls}">`);
+    let result = line.replace('<span class="line">', `<span class="${cls}">`);
+
+    if (type === "add" || type === "remove") {
+      const prefixChar = type === "add" ? "+" : "-";
+      const lineSpanEnd = result.indexOf(">") + 1;
+      const rest = result.slice(lineSpanEnd);
+      const charIdx = rest.indexOf(`>${prefixChar}`);
+      if (charIdx !== -1) {
+        const cleanedRest = rest.slice(0, charIdx + 1) + rest.slice(charIdx + 2);
+        result = result.slice(0, lineSpanEnd) + gutterHtml(type) + cleanedRest;
+      }
+    } else if (type === "context") {
+      const lineSpanEnd = result.indexOf(">") + 1;
+      const rest = result.slice(lineSpanEnd);
+      const charIdx = rest.indexOf("> ");
+      if (charIdx !== -1) {
+        const cleanedRest = rest.slice(0, charIdx + 1) + rest.slice(charIdx + 2);
+        result = result.slice(0, lineSpanEnd) + gutterHtml(type) + cleanedRest;
+      }
+    }
+
+    return result;
   });
 
   return prefix + processedLines.join("") + suffix;
