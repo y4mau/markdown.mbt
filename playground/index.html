@@ -818,14 +818,32 @@
 
     .preview .diff-line {
       display: block;
+      padding: 0 16px;
+      margin: 0 -16px;
+      border-left: 4px solid transparent;
     }
 
     .preview .diff-line-add {
-      background-color: rgba(63, 185, 80, 0.15);
+      background-color: rgba(46, 160, 67, 0.30);
+      border-left-color: #3fb950;
     }
 
     .preview .diff-line-remove {
-      background-color: rgba(248, 81, 73, 0.15);
+      background-color: rgba(248, 81, 73, 0.30);
+      border-left-color: #f85149;
+    }
+
+    .preview .diff-line-hunk {
+      background-color: rgba(56, 139, 253, 0.25);
+      border-left-color: #388bfd;
+      color: #79c0ff;
+    }
+
+    .preview .diff-line-header {
+      background-color: rgba(110, 118, 129, 0.20);
+      border-left-color: #6e7681;
+      color: #8b949e;
+      font-weight: bold;
     }
 
     .preview ul, .preview ol {
