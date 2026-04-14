@@ -11,6 +11,8 @@ import type {
 import type { Position } from "unist";
 // @ts-ignore - no type declarations for syntree_api.js
 import { highlight } from "../js/syntree_api.js";
+// @ts-ignore - no type declarations for api.js
+import { parse } from "../js/api.js";
 
 // =============================================================================
 // SVG Sanitizer
@@ -76,7 +78,7 @@ export interface RendererCallbacks {
 // Code block handler for custom rendering (e.g., SVG, mermaid, moonlight)
 // Return null to fall through to default syntax highlighting
 export interface CodeBlockHandler {
-  render: (code: string, span: string, key?: string | number, mode?: string) => JSX.Element | null;
+  render: (code: string, span: string, key?: string | number, mode?: string, options?: RendererOptions) => JSX.Element | null;
 }
 
 // Section range for a heading (used internally)
@@ -93,6 +95,8 @@ export interface RendererOptions {
   sourceText?: string;
   // Internal: heading section ranges keyed by span string
   _headingSections?: Map<string, HeadingSectionRange>;
+  // Internal: current nesting depth for rendered markdown code blocks
+  _markdownNestDepth?: number;
 }
 
 // Rewrite relative src/href attributes in raw HTML to use the local asset endpoint
@@ -138,6 +142,51 @@ function CodeBlock({ code, children }: { code: string; children: JSX.Element }) 
   return (
     <div class="code-block-wrapper">
       {children}
+      <button
+        class="copy-btn"
+        onMouseDown={(e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); }}
+        onClick={(e: MouseEvent) => handleCopyClick(code, e)}
+        title="Copy code"
+        ref={(el) => { if (el) el.innerHTML = COPY_BTN_SVG; }}
+      />
+    </div>
+  );
+}
+
+export const MAX_MARKDOWN_NEST_DEPTH = 3;
+
+// Rendered markdown code block — parses inner content as markdown and renders recursively
+export function RenderedMarkdownBlock({
+  code,
+  span,
+  key,
+  options,
+}: {
+  code: string;
+  span: string;
+  key?: string | number;
+  options?: RendererOptions;
+}): JSX.Element | null {
+  const currentDepth = options?._markdownNestDepth ?? 0;
+
+  let ast: Root;
+  try {
+    ast = parse(code);
+  } catch {
+    return null;
+  }
+
+  const { sourceText: _, _headingSections: __, ...rest } = options ?? {};
+  const nestedOptions: RendererOptions = {
+    ...rest,
+    _markdownNestDepth: currentDepth + 1,
+  };
+
+  return (
+    <div class="rendered-markdown-block" data-span={span} data-nest-depth={currentDepth} key={key}>
+      {ast.children.map((child: RootContent, i: number) =>
+        renderBlock(child, `${key}-nested-${i}`, undefined, nestedOptions)
+      ).filter(Boolean)}
       <button
         class="copy-btn"
         onMouseDown={(e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); }}
@@ -297,7 +346,7 @@ export function renderBlock(
       // Handler can return null to fall through to default highlighting
       const handler = options?.codeBlockHandlers?.[lang];
       if (handler) {
-        const result = handler.render(block.value, span, key, mode);
+        const result = handler.render(block.value, span, key, mode, options);
         if (result !== null) {
           return result;
         }

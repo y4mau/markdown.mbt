@@ -1,7 +1,7 @@
 import { render, createSignal, createEffect, createMemo, onMount, onCleanup, Show, batch } from "@luna_ui/luna";
 import { parse } from "../js/api.js";
 import type { Root } from "mdast";
-import { MarkdownRenderer, RawHtml, sanitizeSvg, setCurrentFilePath, type RendererCallbacks, type RendererOptions } from "./ast-renderer";
+import { MarkdownRenderer, MAX_MARKDOWN_NEST_DEPTH, RawHtml, RenderedMarkdownBlock, sanitizeSvg, setCurrentFilePath, type RendererCallbacks, type RendererOptions } from "./ast-renderer";
 import { SyntaxHighlightEditor, type SyntaxHighlightEditorHandle } from "./SyntaxHighlightEditor";
 import { MoonlightEditor } from "./MoonlightEditor";
 import { handlePasteAsLink } from "./paste-url-as-link";
@@ -1050,6 +1050,22 @@ function App() {
         render: (code, span, key, mode) => {
           if (mode === "code") return null;
           return <MermaidDiagram key={key} code={code} span={span} />;
+        },
+      },
+      // Render ```markdown / ```md blocks as fully rendered markdown
+      // ```markdown:code falls through to plain code view
+      markdown: {
+        render: (code, span, key, mode, options) => {
+          if (mode === "code") return null;
+          if ((options?._markdownNestDepth ?? 0) >= MAX_MARKDOWN_NEST_DEPTH) return null;
+          return <RenderedMarkdownBlock code={code} span={span} key={key} options={options} />;
+        },
+      },
+      md: {
+        render: (code, span, key, mode, options) => {
+          if (mode === "code") return null;
+          if ((options?._markdownNestDepth ?? 0) >= MAX_MARKDOWN_NEST_DEPTH) return null;
+          return <RenderedMarkdownBlock code={code} span={span} key={key} options={options} />;
         },
       },
     },
