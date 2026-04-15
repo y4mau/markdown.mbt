@@ -788,6 +788,43 @@
       display: inline;
     }
 
+    /* Rendered markdown code block (nested markdown preview) */
+    .preview .rendered-markdown-block {
+      position: relative;
+      margin: 16px 0;
+      padding: 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-secondary);
+    }
+
+    .preview .rendered-markdown-block:hover > .copy-btn {
+      opacity: 1;
+    }
+
+    .preview .rendered-markdown-block .mermaid-zoom-controls {
+      right: auto;
+      left: 8px;
+    }
+
+    .preview .rendered-markdown-block .rendered-markdown-block {
+      background: var(--bg-tertiary);
+      border-style: dashed;
+    }
+
+    .preview .rendered-markdown-block .rendered-markdown-block .rendered-markdown-block {
+      background: var(--bg-primary);
+      border-style: dotted;
+    }
+
+    .preview .rendered-markdown-block > :first-child {
+      margin-top: 0;
+    }
+
+    .preview .rendered-markdown-block > :last-child {
+      margin-bottom: 0;
+    }
+
     .preview pre {
       background: var(--code-bg);
       padding: 16px;
