@@ -224,6 +224,7 @@ interface UIState {
   editorMode: "highlight" | "simple";
   cursorPosition: number;
   editorScrollTop: number;
+  previewScrollTop: number;
 }
 
 function loadUIState(): UIState {
@@ -241,6 +242,7 @@ function loadUIState(): UIState {
         editorMode,
         cursorPosition: parsed.cursorPosition || 0,
         editorScrollTop: parsed.editorScrollTop || 0,
+        previewScrollTop: parsed.previewScrollTop || 0,
       };
     }
   } catch {
@@ -252,6 +254,7 @@ function loadUIState(): UIState {
     editorMode: mobile ? "simple" : "highlight",
     cursorPosition: 0,
     editorScrollTop: 0,
+    previewScrollTop: 0,
   };
 }
 
@@ -789,6 +792,12 @@ function App() {
         simpleEditorRef.focus({ preventScroll: true });
         simpleEditorRef.scrollTop = initialUIState.editorScrollTop;
       }
+      // Restore preview scroll after the render effect has populated the DOM
+      requestAnimationFrame(() => {
+        if (previewRef && initialUIState.previewScrollTop > 0) {
+          previewRef.scrollTop = initialUIState.previewScrollTop;
+        }
+      });
       if (loadedFromQuery) {
         setSaveStatus("saved");
         setSaveStatusText("Synced");
@@ -1094,6 +1103,8 @@ function App() {
 
   // Suppress preview scroll when cursor change originated from preview click
   let suppressPreviewScroll = false;
+  // Suppress the first cursor-driven scroll so the restored preview scroll wins on load
+  let suppressInitialPreviewScroll = true;
 
   // Sync preview scroll with cursor position (debounced to avoid excessive scrolling)
   let scrollTimer: number | undefined;
@@ -1104,6 +1115,11 @@ function App() {
 
     if (suppressPreviewScroll) {
       suppressPreviewScroll = false;
+      return;
+    }
+
+    if (suppressInitialPreviewScroll) {
+      suppressInitialPreviewScroll = false;
       return;
     }
 
@@ -1775,6 +1791,14 @@ function App() {
             {/* Preview panel - imperative re-render via createEffect + render */}
             <div class="preview" ref={(el) => {
               previewRef = el;
+              // Debounce preview scroll save to localStorage
+              let previewScrollSaveTimer: number | undefined;
+              el.addEventListener("scroll", () => {
+                clearTimeout(previewScrollSaveTimer);
+                previewScrollSaveTimer = window.setTimeout(() => {
+                  saveUIState({ previewScrollTop: el.scrollTop });
+                }, 500);
+              });
               createEffect(() => {
                 const currentAst = ast();
                 if (!currentAst) return;
