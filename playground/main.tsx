@@ -223,6 +223,7 @@ interface UIState {
   viewMode: "split" | "editor" | "preview";
   editorMode: "highlight" | "simple";
   cursorPosition: number;
+  editorScrollTop: number;
 }
 
 function loadUIState(): UIState {
@@ -239,6 +240,7 @@ function loadUIState(): UIState {
         viewMode,
         editorMode,
         cursorPosition: parsed.cursorPosition || 0,
+        editorScrollTop: parsed.editorScrollTop || 0,
       };
     }
   } catch {
@@ -249,6 +251,7 @@ function loadUIState(): UIState {
     viewMode: mobile ? "editor" : "split",
     editorMode: mobile ? "simple" : "highlight",
     cursorPosition: 0,
+    editorScrollTop: 0,
   };
 }
 
@@ -289,6 +292,7 @@ function SimpleEditor(props: {
   value: () => string;
   onChange: (value: string) => void;
   onCursorChange?: (position: number) => void;
+  onScroll?: () => void;
   ref?: (el: HTMLTextAreaElement) => void;
 }) {
   let textareaRef: HTMLTextAreaElement | null = null;
@@ -333,6 +337,7 @@ function SimpleEditor(props: {
       onPaste={handlePaste}
       onKeyUp={handleCursorUpdate}
       onClick={handleCursorUpdate}
+      onScroll={() => props.onScroll?.()}
       spellcheck={false}
     />
   );
@@ -775,7 +780,15 @@ function App() {
     // Parse AST after next frame to ensure previewRef is ready
     requestAnimationFrame(() => {
       setAst(parse(content));
-      editorRef?.focus();
+      // Focus without scrolling so the restored scroll position is preserved
+      if (editorMode() === "highlight" && editorRef) {
+        editorRef.focus({ preventScroll: true });
+      } else if (editorMode() === "simple" && simpleEditorRef) {
+        const pos = Math.min(initialUIState.cursorPosition, content.length);
+        simpleEditorRef.setSelectionRange(pos, pos);
+        simpleEditorRef.focus({ preventScroll: true });
+        simpleEditorRef.scrollTop = initialUIState.editorScrollTop;
+      }
       if (loadedFromQuery) {
         setSaveStatus("saved");
         setSaveStatusText("Synced");
@@ -1369,6 +1382,21 @@ function App() {
     }, 500);
   };
 
+  // Debounce editor scroll position saving
+  let scrollSaveTimer: number | undefined;
+  const handleEditorScroll = () => {
+    clearTimeout(scrollSaveTimer);
+    scrollSaveTimer = window.setTimeout(() => {
+      let scrollTop = 0;
+      if (editorMode() === "highlight" && editorRef) {
+        scrollTop = editorRef.getScrollTop();
+      } else if (editorMode() === "simple" && simpleEditorRef) {
+        scrollTop = simpleEditorRef.scrollTop;
+      }
+      saveUIState({ editorScrollTop: scrollTop });
+    }, 500);
+  };
+
   return (
     <Show when={isInitialized}>
       {() => (
@@ -1728,7 +1756,9 @@ function App() {
                   value={() => source()}
                   onChange={handleChange}
                   onCursorChange={handleCursorChange}
+                  onScroll={handleEditorScroll}
                   initialCursorPosition={initialUIState.cursorPosition}
+                  initialScrollTop={initialUIState.editorScrollTop}
                 />
               </div>
               {/* Simple editor - always mounted, visibility controlled by CSS */}
@@ -1737,6 +1767,7 @@ function App() {
                   value={() => source()}
                   onChange={handleChange}
                   onCursorChange={handleCursorChange}
+                  onScroll={handleEditorScroll}
                   ref={(el) => { simpleEditorRef = el; }}
                 />
               </div>

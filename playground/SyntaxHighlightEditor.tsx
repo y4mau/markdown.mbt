@@ -7,7 +7,9 @@ interface SyntaxHighlightEditorProps {
   value: () => string;  // Always accessor for fine-grained reactivity
   onChange: (value: string) => void;
   onCursorChange?: (position: number) => void;
+  onScroll?: () => void;
   initialCursorPosition?: number;
+  initialScrollTop?: number;
   ref?: (handle: SyntaxHighlightEditorHandle) => void;
   showLineNumbers?: boolean; // Default: false for better performance
 }
@@ -426,7 +428,7 @@ function getLineFromOffset(text: string, offset: number): number {
 }
 
 export interface SyntaxHighlightEditorHandle {
-  focus: () => void;
+  focus: (options?: { preventScroll?: boolean }) => void;
   getCursorPosition: () => number;
   setCursorPosition: (pos: number, viewportRatio?: number) => void;
   getScrollTop: () => number;
@@ -458,7 +460,7 @@ export function SyntaxHighlightEditor(props: SyntaxHighlightEditorProps) {
   onMount(() => {
     if (props.ref) {
       props.ref({
-        focus: () => editorRef?.focus(),
+        focus: (options?: { preventScroll?: boolean }) => editorRef?.focus(options),
         getCursorPosition: () => editorRef?.selectionStart ?? 0,
         setCursorPosition: (pos: number, viewportRatio?: number) => {
           if (editorRef) {
@@ -478,6 +480,7 @@ export function SyntaxHighlightEditor(props: SyntaxHighlightEditorProps) {
         setScrollTop: (top: number) => {
           if (editorRef) {
             editorRef.scrollTop = top;
+            syncScroll();
           }
         },
         setValue: (value: string, span?: { start: number; end: number }) => {
@@ -716,10 +719,6 @@ export function SyntaxHighlightEditor(props: SyntaxHighlightEditorProps) {
     // Set initial value
     el.value = value;
 
-    // Reset scroll position
-    el.scrollTop = 0;
-    el.scrollLeft = 0;
-
     // Defer initial line count to avoid updating signal during render
     if (props.showLineNumbers) {
       queueMicrotask(() => {
@@ -730,20 +729,20 @@ export function SyntaxHighlightEditor(props: SyntaxHighlightEditorProps) {
     // Initial highlight (synchronous for initial render)
     updateHighlight();
 
-    // Reset transforms
-    if (highlightRef) {
-      highlightRef.style.transform = "translate(0px, 0px)";
-    }
-    if (props.showLineNumbers && lineNumbersRef) {
-      lineNumbersRef.style.transform = "translateY(0px)";
-    }
-
-    // Restore cursor position
+    // Restore cursor position (setSelectionRange does not cause scrolling by itself)
     if (props.initialCursorPosition != null && props.initialCursorPosition > 0) {
       const pos = Math.min(props.initialCursorPosition, value.length);
       el.setSelectionRange(pos, pos);
       initialized = true;
     }
+
+    // Restore scroll position (higher priority than cursor-driven scroll)
+    const targetScrollTop = props.initialScrollTop ?? 0;
+    el.scrollTop = targetScrollTop;
+    el.scrollLeft = 0;
+
+    // Sync highlight overlay transforms with restored scroll (defer until highlightRef is set)
+    queueMicrotask(() => syncScroll());
   };
 
   const handleInput = (e: Event) => {
@@ -801,7 +800,7 @@ export function SyntaxHighlightEditor(props: SyntaxHighlightEditorProps) {
             ref={setupEditor}
             class="editor-textarea"
             onInput={handleInput}
-            onScroll={syncScroll}
+            onScroll={() => { syncScroll(); props.onScroll?.(); }}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             onKeyUp={handleCursorUpdate}
