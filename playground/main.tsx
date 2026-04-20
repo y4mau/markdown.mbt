@@ -223,6 +223,8 @@ interface UIState {
   viewMode: "split" | "editor" | "preview";
   editorMode: "highlight" | "simple";
   cursorPosition: number;
+  editorScrollTop: number;
+  previewScrollTop: number;
 }
 
 function loadUIState(): UIState {
@@ -239,6 +241,8 @@ function loadUIState(): UIState {
         viewMode,
         editorMode,
         cursorPosition: parsed.cursorPosition || 0,
+        editorScrollTop: parsed.editorScrollTop || 0,
+        previewScrollTop: parsed.previewScrollTop || 0,
       };
     }
   } catch {
@@ -249,6 +253,8 @@ function loadUIState(): UIState {
     viewMode: mobile ? "editor" : "split",
     editorMode: mobile ? "simple" : "highlight",
     cursorPosition: 0,
+    editorScrollTop: 0,
+    previewScrollTop: 0,
   };
 }
 
@@ -289,6 +295,7 @@ function SimpleEditor(props: {
   value: () => string;
   onChange: (value: string) => void;
   onCursorChange?: (position: number) => void;
+  onScroll?: () => void;
   ref?: (el: HTMLTextAreaElement) => void;
 }) {
   let textareaRef: HTMLTextAreaElement | null = null;
@@ -333,6 +340,7 @@ function SimpleEditor(props: {
       onPaste={handlePaste}
       onKeyUp={handleCursorUpdate}
       onClick={handleCursorUpdate}
+      onScroll={() => props.onScroll?.()}
       spellcheck={false}
     />
   );
@@ -775,7 +783,21 @@ function App() {
     // Parse AST after next frame to ensure previewRef is ready
     requestAnimationFrame(() => {
       setAst(parse(content));
-      editorRef?.focus();
+      // Focus without scrolling so the restored scroll position is preserved
+      if (editorMode() === "highlight" && editorRef) {
+        editorRef.focus({ preventScroll: true });
+      } else if (editorMode() === "simple" && simpleEditorRef) {
+        const pos = Math.min(initialUIState.cursorPosition, content.length);
+        simpleEditorRef.setSelectionRange(pos, pos);
+        simpleEditorRef.focus({ preventScroll: true });
+        simpleEditorRef.scrollTop = initialUIState.editorScrollTop;
+      }
+      // Restore preview scroll after the render effect has populated the DOM
+      requestAnimationFrame(() => {
+        if (previewRef && initialUIState.previewScrollTop > 0) {
+          previewRef.scrollTop = initialUIState.previewScrollTop;
+        }
+      });
       if (loadedFromQuery) {
         setSaveStatus("saved");
         setSaveStatusText("Synced");
@@ -1081,6 +1103,8 @@ function App() {
 
   // Suppress preview scroll when cursor change originated from preview click
   let suppressPreviewScroll = false;
+  // Suppress the first cursor-driven scroll so the restored preview scroll wins on load
+  let suppressInitialPreviewScroll = true;
 
   // Sync preview scroll with cursor position (debounced to avoid excessive scrolling)
   let scrollTimer: number | undefined;
@@ -1091,6 +1115,11 @@ function App() {
 
     if (suppressPreviewScroll) {
       suppressPreviewScroll = false;
+      return;
+    }
+
+    if (suppressInitialPreviewScroll) {
+      suppressInitialPreviewScroll = false;
       return;
     }
 
@@ -1366,6 +1395,21 @@ function App() {
     clearTimeout(cursorSaveTimer);
     cursorSaveTimer = window.setTimeout(() => {
       saveUIState({ cursorPosition: position });
+    }, 500);
+  };
+
+  // Debounce editor scroll position saving
+  let scrollSaveTimer: number | undefined;
+  const handleEditorScroll = () => {
+    clearTimeout(scrollSaveTimer);
+    scrollSaveTimer = window.setTimeout(() => {
+      let scrollTop = 0;
+      if (editorMode() === "highlight" && editorRef) {
+        scrollTop = editorRef.getScrollTop();
+      } else if (editorMode() === "simple" && simpleEditorRef) {
+        scrollTop = simpleEditorRef.scrollTop;
+      }
+      saveUIState({ editorScrollTop: scrollTop });
     }, 500);
   };
 
@@ -1728,7 +1772,9 @@ function App() {
                   value={() => source()}
                   onChange={handleChange}
                   onCursorChange={handleCursorChange}
+                  onScroll={handleEditorScroll}
                   initialCursorPosition={initialUIState.cursorPosition}
+                  initialScrollTop={initialUIState.editorScrollTop}
                 />
               </div>
               {/* Simple editor - always mounted, visibility controlled by CSS */}
@@ -1737,6 +1783,7 @@ function App() {
                   value={() => source()}
                   onChange={handleChange}
                   onCursorChange={handleCursorChange}
+                  onScroll={handleEditorScroll}
                   ref={(el) => { simpleEditorRef = el; }}
                 />
               </div>
@@ -1744,6 +1791,14 @@ function App() {
             {/* Preview panel - imperative re-render via createEffect + render */}
             <div class="preview" ref={(el) => {
               previewRef = el;
+              // Debounce preview scroll save to localStorage
+              let previewScrollSaveTimer: number | undefined;
+              el.addEventListener("scroll", () => {
+                clearTimeout(previewScrollSaveTimer);
+                previewScrollSaveTimer = window.setTimeout(() => {
+                  saveUIState({ previewScrollTop: el.scrollTop });
+                }, 500);
+              });
               createEffect(() => {
                 const currentAst = ast();
                 if (!currentAst) return;
