@@ -911,8 +911,20 @@
 
     .preview table {
       border-collapse: collapse;
-      margin: 16px 0;
       width: 100%;
+    }
+
+    .preview .table-resize-wrapper,
+    .preview .table-chart-wrapper {
+      width: 80%;
+      max-width: 100%;
+      margin: 16px auto;
+      min-width: 200px;
+    }
+
+    .preview .table-resize-wrapper {
+      resize: horizontal;
+      overflow: auto;
     }
 
     .preview th, .preview td {
@@ -924,6 +936,174 @@
     .preview th {
       background: var(--bg-tertiary);
       font-weight: 600;
+    }
+
+    /* Table chart visualization */
+    .table-chart-wrapper {
+      position: relative;
+      padding-top: 30px;
+      resize: horizontal;
+      overflow: auto;
+    }
+
+    .table-chart-wrapper > table {
+      margin: 0;
+      width: 100%;
+    }
+
+    .table-chart-toolbar {
+      position: absolute;
+      top: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      z-index: 10;
+      padding: 2px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+    }
+
+    .table-chart-wrapper:hover .table-chart-toolbar,
+    .table-chart-canvas-container:hover .table-chart-toolbar {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .table-chart-btn {
+      width: 28px;
+      height: 24px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .table-chart-btn:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .table-chart-btn.active {
+      color: var(--accent-color, #58a6ff);
+      background: var(--bg-tertiary);
+    }
+
+    .table-chart-canvas-container {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 16px;
+      position: relative;
+      resize: both;
+      overflow: hidden;
+      min-width: 200px;
+      min-height: 150px;
+    }
+
+    .table-chart-chart-area {
+      margin: 0;
+    }
+
+    .table-chart-group {
+      width: fit-content;
+      margin: 0 auto;
+    }
+
+    .table-chart-group .table-chart-toolbar {
+      position: static;
+      transform: none;
+      margin-left: auto;
+      width: fit-content;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+    }
+
+    .table-chart-group:hover .table-chart-toolbar {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .table-chart-group .table-chart-canvas-container {
+      margin: 0;
+    }
+
+    .table-chart-render-target {
+      margin: 0 auto;
+    }
+
+    .table-chart-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .table-chart-error {
+      color: var(--text-secondary);
+      font-size: 13px;
+      padding: 16px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+    }
+
+    .table-chart-config-popover {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px;
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+
+    .table-chart-config-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .table-chart-config-row input[type="checkbox"] {
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .table-chart-config-row label {
+      color: var(--text-secondary);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .table-chart-config-input {
+      flex: 1;
+      padding: 2px 6px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 12px;
+      min-width: 0;
+    }
+
+    .table-chart-config-input:disabled {
+      opacity: 0.4;
     }
 
     .preview blockquote {
