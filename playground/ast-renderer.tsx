@@ -14,6 +14,8 @@ import { highlight } from "../js/syntree_api.js";
 // @ts-ignore - no type declarations for api.js
 import { parse } from "../js/api.js";
 import { renderDiffPlain, applyDiffHighlighting } from "./diff-highlight";
+import { isChartable } from "./chart-runtime";
+import { TableChart } from "./TableChart";
 
 // =============================================================================
 // SVG Sanitizer
@@ -438,7 +440,7 @@ export function renderBlock(
     case "table": {
       const [headerRow, ...bodyRows] = block.children;
       const align = block.align ?? [];
-      return (
+      const tableEl = (
         <table key={key} data-span={getSpan(block)}>
           {headerRow && (
             <thead>
@@ -461,6 +463,21 @@ export function renderBlock(
             </tbody>
           )}
         </table>
+      );
+      if (isChartable(block)) {
+        return (
+          <TableChart
+            key={key}
+            tableNode={block}
+            span={getSpan(block)}
+            tableElement={tableEl}
+          />
+        );
+      }
+      return (
+        <div key={key} class="table-resize-wrapper" data-span={getSpan(block)}>
+          {tableEl}
+        </div>
       );
     }
 
