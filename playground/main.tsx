@@ -388,6 +388,15 @@ const COPY_ALL_ICON = `<svg viewBox="0 0 20 20" width="18" height="18" fill="non
   <path d="M4 14V4a1 1 0 0 1 1-1h8"/>
 </svg>`;
 
+const COPY_PATH_ICON = `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+  <rect x="5" y="5" width="8" height="9" rx="1"/>
+  <path d="M3 11V3a1 1 0 0 1 1-1h6"/>
+</svg>`;
+
+const CHECK_ICON_SMALL = `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="#3fb950" stroke-width="2">
+  <path d="M3 8.5l3.5 3.5 6.5-7"/>
+</svg>`;
+
 const FILE_OPEN_ICON = `<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5">
   <path d="M3 17V3a1 1 0 0 1 1-1h5l2 2h5a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>
   <path d="M8 10v4m-2-2h4" stroke-linecap="round"/>
@@ -1505,6 +1514,29 @@ function App() {
                   }
                 });
               }}></span>
+              <button
+                class="copy-path-btn"
+                title="Copy file path"
+                ref={(el: HTMLButtonElement) => {
+                  createEffect(() => {
+                    el.style.display = filePath() ? "" : "none";
+                  });
+                }}
+                onClick={(e: MouseEvent) => {
+                  const fp = filePath();
+                  if (!fp) return;
+                  navigator.clipboard.writeText(fp);
+                  const btn = e.currentTarget as HTMLElement;
+                  btn.innerHTML = `<span style="display:flex;align-items:center">${CHECK_ICON_SMALL}</span>`;
+                  btn.classList.add("copied");
+                  setTimeout(() => {
+                    btn.innerHTML = `<span style="display:flex;align-items:center">${COPY_PATH_ICON}</span>`;
+                    btn.classList.remove("copied");
+                  }, 2000);
+                }}
+              >
+                <Icon svg={COPY_PATH_ICON} />
+              </button>
               <span class="save-status" ref={(el: HTMLSpanElement) => { saveStatusRef = el; }}></span>
             </div>
             <div class="toolbar-actions">
