@@ -23,12 +23,17 @@ This fork adds the following on top of upstream:
 
 - **Playground with local file I/O** — Load local `.md` files via `?file=<path>`, auto-save with status indicator, sync on window focus
 - **Floating document switcher** — Sidebar with recent documents list, FLIP-animated reordering, file picker upload, and keyboard navigation (`Ctrl+Shift+P`)
+- **Scroll position preservation** — Editor and preview scroll positions are restored across reloads and document switches
 - **Relative path resolution** — Markdown links and images using relative paths (e.g. `./docs/arch.md`, `./img/screenshot.png`) resolve correctly in preview
 - **Copy-to-clipboard** — Copy entire document from toolbar, per-code-block copy, and per-heading section copy (hover heading to reveal, section highlights on hover)
 - **Mermaid diagram rendering** — Fenced code blocks with `mermaid` language render as diagrams with zoom/pan controls
+- **Table-to-chart visualization** — Numeric Markdown tables render as interactive Chart.js charts with type switching (bar / line / pie)
+- **Nested Markdown rendering** — Fenced code blocks tagged `markdown` / `md` render as fully-rendered Markdown (handy for writing documentation samples)
+- **GitHub-style diff highlighting** — Fenced `diff` code blocks show added/removed line backgrounds with a non-selectable `+` / `-` gutter
 - **Details/summary toggle** — HTML `<details>` / `<summary>` blocks render as collapsible sections
 - **Preview-to-source navigation** — Click preview elements to jump to the corresponding source position; text selection in preview is preserved
 - **Paste URL as link** — Select text and paste a URL to create a `[text](url)` markdown link
+- **mdpreview tab reuse** — Repeated `mdpreview` calls reuse the existing browser tab instead of opening a new one
 
 ## Quick Setup
 
