@@ -34,6 +34,7 @@ This fork adds the following on top of upstream:
 - **Preview-to-source navigation** — Click preview elements to jump to the corresponding source position; text selection in preview is preserved
 - **Paste URL as link** — Select text and paste a URL to create a `[text](url)` markdown link
 - **mdpreview tab reuse** — Repeated `mdpreview` calls reuse the existing browser tab instead of opening a new one
+- **Slide mode** — Fourth view mode (`Ctrl+4`) that turns the document into a presentation: `---` separates slides, a standalone `--` paragraph reveals fragments step-by-step, and `::transition fade|slide|zoom|flip|none` / `::background <css>` / `::effect confetti|sparkle` directives style each slide. Includes thumbnail strip with cursor sync and a fullscreen player (arrow/click/swipe navigation, laser pointer `L`, blackout `B`, confetti `C`, help `?`). Slide parsing lives in MoonBit (`src/slide`, exposed via `js/slide_api.js`)
 
 ## Quick Setup
 
