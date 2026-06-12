@@ -1,4 +1,4 @@
-import { render, createSignal, createEffect, createMemo, onMount, onCleanup, Show, batch } from "@luna_ui/luna";
+import { render, createSignal, createEffect, createMemo, onMount, onCleanup, Show, batch, untrack } from "@luna_ui/luna";
 import { parse } from "../js/api.js";
 import { parseSlides } from "../js/slide_api.js";
 import type { SlideData } from "../js/slide_api";
@@ -484,8 +484,9 @@ function App() {
     try {
       const result = parseSlides(src);
       setSlides(result.slides);
-      // Clamp selection if the deck shrank.
-      if (selectedSlide() >= result.slides.length) {
+      // Clamp selection if the deck shrank (untrack: selection changes must
+      // not re-trigger a reparse).
+      if (untrack(selectedSlide) >= result.slides.length) {
         setSelectedSlide(Math.max(0, result.slides.length - 1));
       }
     } catch (e) {
@@ -501,7 +502,9 @@ function App() {
     const deck = slides();
     if (deck.length === 0) return;
     const idx = slideIndexAtOffset(deck, pos);
-    if (idx !== selectedSlide()) {
+    // untrack: reading selectedSlide reactively would re-run this effect on
+    // thumbnail clicks and snap the selection back to the cursor's slide.
+    if (idx !== untrack(selectedSlide)) {
       setSelectedSlide(idx);
     }
   });
@@ -1972,7 +1975,8 @@ function App() {
           <Show when={playerOpen}>
             <SlidePlayer
               deck={slides}
-              startSlide={playerStartSlide()}
+              active={playerOpen}
+              startSlide={playerStartSlide}
               onExit={() => setPlayerOpen(false)}
             />
           </Show>

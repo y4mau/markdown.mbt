@@ -13,7 +13,12 @@ import { SlideEffects } from "./slide-effects";
 
 interface SlidePlayerProps {
   deck: () => SlideData[];
-  startSlide?: number;
+  /// Whether the player is currently open. The component instance stays alive
+  /// while hidden (Luna's <Show> only detaches the DOM), so all listeners and
+  /// effects must gate on this, and opening must reset transient state.
+  active: () => boolean;
+  /// Accessor for the slide index to start from when the player opens.
+  startSlide?: () => number;
   onExit: () => void;
 }
 
@@ -31,12 +36,8 @@ const HELP_ITEMS: Array<[string, string]> = [
 
 export function SlidePlayer(props: SlidePlayerProps) {
   const deck = () => props.deck();
-  const startSlide = props.startSlide ?? 0;
 
-  const [pos, setPos] = createSignal<DeckPosition>({
-    slide: Math.min(startSlide, Math.max(0, deck().length - 1)),
-    fragment: 0,
-  });
+  const [pos, setPos] = createSignal<DeckPosition>({ slide: 0, fragment: 0 });
   const [direction, setDirection] = createSignal<"forward" | "backward">("forward");
   const [blackout, setBlackout] = createSignal(false);
   const [laser, setLaser] = createSignal(false);
@@ -87,8 +88,26 @@ export function SlidePlayer(props: SlidePlayerProps) {
     hideTimer = window.setTimeout(() => setControlsVisible(false), 2500);
   };
 
+  // Reset transient state every time the player opens; silence ambient
+  // effects while it is hidden.
+  createEffect(() => {
+    if (props.active()) {
+      const start = untrack(() => props.startSlide?.() ?? 0);
+      const max = untrack(() => Math.max(0, deck().length - 1));
+      setPos({ slide: Math.min(Math.max(0, start), max), fragment: 0 });
+      setDirection("forward");
+      setBlackout(false);
+      setLaser(false);
+      setShowHelp(false);
+      wakeControls();
+    } else {
+      effects.setAmbient(false);
+    }
+  });
+
   onMount(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (!props.active()) return;
       switch (event.key) {
         case "ArrowRight":
         case "ArrowDown":
@@ -154,6 +173,7 @@ export function SlidePlayer(props: SlidePlayerProps) {
 
   // Per-slide effects: confetti burst on entry, ambient sparkle while present.
   createEffect(() => {
+    if (!props.active()) return;
     pos().slide; // track slide changes
     const slide = untrack(() => currentSlide());
     if (slide?.effect === "confetti") {
