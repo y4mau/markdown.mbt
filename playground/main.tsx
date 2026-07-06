@@ -1,11 +1,16 @@
-import { render, createSignal, createEffect, createMemo, onMount, onCleanup, Show, batch } from "@luna_ui/luna";
+import { render, createSignal, createEffect, createMemo, onMount, onCleanup, Show, batch, untrack } from "@luna_ui/luna";
 import { parse } from "../js/api.js";
+import { parseSlides } from "../js/slide_api.js";
+import type { SlideData } from "../js/slide_api";
 import type { Root } from "mdast";
 import { MarkdownRenderer, MAX_MARKDOWN_NEST_DEPTH, RawHtml, RenderedMarkdownBlock, sanitizeSvg, setCurrentFilePath, type RendererCallbacks, type RendererOptions } from "./ast-renderer";
 import { SyntaxHighlightEditor, type SyntaxHighlightEditorHandle } from "./SyntaxHighlightEditor";
 import { MoonlightEditor } from "./MoonlightEditor";
 import { handlePasteAsLink } from "./paste-url-as-link";
 import { MermaidDiagram } from "./MermaidDiagram";
+import { SlideView } from "./SlideView";
+import { SlidePlayer } from "./SlidePlayer";
+import { slideIndexAtOffset } from "./slide-navigation";
 
 // IndexedDB for content (reliable async storage)
 const IDB_NAME = "markdown-editor";
@@ -220,7 +225,7 @@ function isMobile(): boolean {
 
 // UI State helpers (localStorage for sync access)
 interface UIState {
-  viewMode: "split" | "editor" | "preview";
+  viewMode: "split" | "editor" | "preview" | "slide";
   editorMode: "highlight" | "simple";
   cursorPosition: number;
   editorScrollTop: number;
@@ -287,7 +292,7 @@ function findBlockAtPosition(ast: Root, position: number): number | null {
   return null;
 }
 
-type ViewMode = "split" | "editor" | "preview";
+type ViewMode = "split" | "editor" | "preview" | "slide";
 type EditorMode = "highlight" | "simple";
 
 // Simple editor component (created once, updated via effect)
@@ -369,6 +374,16 @@ const PREVIEW_ICON = `<svg viewBox="0 0 20 20" width="18" height="18" fill="curr
   <path d="M4 10 Q7 5, 10 5 Q13 5, 16 10 Q13 15, 10 15 Q7 15, 4 10" stroke="currentColor" stroke-width="1.5" fill="none"/>
 </svg>`;
 
+const SLIDE_ICON = `<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5">
+  <rect x="2" y="4" width="16" height="10" rx="1"/>
+  <line x1="7" y1="17" x2="13" y2="17" stroke-linecap="round"/>
+  <line x1="10" y1="14" x2="10" y2="17"/>
+</svg>`;
+
+const PRESENT_ICON = `<svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+  <path d="M6 4l10 6-10 6z"/>
+</svg>`;
+
 const HIGHLIGHT_ICON = `<svg viewBox="0 0 20 20" width="18" height="18" fill="none">
   <text x="2" y="14" font-size="12" fill="#d73a49" font-family="monospace" font-weight="bold">&lt;</text>
   <text x="8" y="14" font-size="12" fill="#22863a" font-family="monospace">/</text>
@@ -447,6 +462,11 @@ function App() {
   const [isDirty, setIsDirty] = createSignal(false);
   const [viewMode, setViewMode] = createSignal<ViewMode>(initialUIState.viewMode);
   const [editorMode, setEditorMode] = createSignal<EditorMode>(initialUIState.editorMode);
+  // Slide mode state
+  const [slides, setSlides] = createSignal<SlideData[]>([]);
+  const [selectedSlide, setSelectedSlide] = createSignal(0);
+  const [playerOpen, setPlayerOpen] = createSignal(false);
+  const [playerStartSlide, setPlayerStartSlide] = createSignal(0);
   const [recentDocs, setRecentDocs] = createSignal<RecentDoc[]>(loadRecentDocs());
   const [sidebarPinned, setSidebarPinned] = createSignal(false);
   const [sidebarHover, setSidebarHover] = createSignal(false);
@@ -456,11 +476,52 @@ function App() {
   // Sync file path to renderer for relative URL resolution
   createEffect(() => setCurrentFilePath(filePath()));
 
+  // Reparse slides whenever the source changes (only meaningful in slide mode,
+  // but cheap enough to always keep in sync; reuses the reactive source signal).
+  createEffect(() => {
+    const src = source();
+    if (viewMode() !== "slide") return;
+    try {
+      const result = parseSlides(src);
+      setSlides(result.slides);
+      // Clamp selection if the deck shrank (untrack: selection changes must
+      // not re-trigger a reparse).
+      if (untrack(selectedSlide) >= result.slides.length) {
+        setSelectedSlide(Math.max(0, result.slides.length - 1));
+      }
+    } catch (e) {
+      console.error("Failed to parse slides:", e);
+      setSlides([]);
+    }
+  });
+
+  // Cursor → slide sync: select the slide whose source span contains the cursor.
+  createEffect(() => {
+    if (viewMode() !== "slide") return;
+    const pos = cursorPosition();
+    const deck = slides();
+    if (deck.length === 0) return;
+    const idx = slideIndexAtOffset(deck, pos);
+    // untrack: reading selectedSlide reactively would re-run this effect on
+    // thumbnail clicks and snap the selection back to the cursor's slide.
+    if (idx !== untrack(selectedSlide)) {
+      setSelectedSlide(idx);
+    }
+  });
+
+  const openPlayer = (fromSlide: number) => {
+    // Must run inside the user gesture for the fullscreen request to succeed.
+    void document.documentElement.requestFullscreen?.().catch(() => {});
+    setPlayerStartSlide(fromSlide);
+    setPlayerOpen(true);
+  };
+
   // Memoized class names for reactivity
   const containerClass = createMemo(() => `container view-${viewMode()} editor-mode-${editorMode()}`);
   const splitBtnClass = createMemo(() => `view-mode-btn ${viewMode() === "split" ? "active" : ""}`);
   const editorBtnClass = createMemo(() => `view-mode-btn ${viewMode() === "editor" ? "active" : ""}`);
   const previewBtnClass = createMemo(() => `view-mode-btn ${viewMode() === "preview" ? "active" : ""}`);
+  const slideBtnClass = createMemo(() => `view-mode-btn ${viewMode() === "slide" ? "active" : ""}`);
   const highlightBtnClass = createMemo(() => `view-mode-btn ${editorMode() === "highlight" ? "active" : ""}`);
   const simpleBtnClass = createMemo(() => `view-mode-btn ${editorMode() === "simple" ? "active" : ""}`);
   const saveStatusClass = createMemo(() => `save-status ${saveStatus()}`);
@@ -737,6 +798,9 @@ function App() {
         } else if (e.key === "3") {
           e.preventDefault();
           handleViewModeChange("preview");
+        } else if (e.key === "4") {
+          e.preventDefault();
+          handleViewModeChange("slide");
         }
       }
     };
@@ -1471,6 +1535,13 @@ function App() {
                 >
                   <Icon svg={PREVIEW_ICON} />
                 </button>
+                <button
+                  class={slideBtnClass}
+                  onClick={() => handleViewModeChange("slide")}
+                  title="Slide view (Ctrl+4)"
+                >
+                  <Icon svg={SLIDE_ICON} />
+                </button>
               </div>
               <div class="editor-mode-buttons">
                 <button
@@ -1839,8 +1910,76 @@ function App() {
                 render(el, <MarkdownRenderer ast={currentAst} callbacks={rendererCallbacks} options={opts} />);
               });
             }} onClick={handlePreviewClick}></div>
+            {/* Slide preview pane - shown only in slide view mode (CSS-controlled) */}
+            <div class="slide-preview">
+              <div class="slide-preview-toolbar">
+                <button
+                  class="present-btn"
+                  title="Present from current slide"
+                  onClick={() => openPlayer(selectedSlide())}
+                >
+                  <Icon svg={PRESENT_ICON} />
+                  <span>Present</span>
+                </button>
+                <span class="slide-preview-counter" ref={(el: HTMLSpanElement) => {
+                  createEffect(() => {
+                    const deck = slides();
+                    el.textContent = deck.length > 0 ? `${selectedSlide() + 1} / ${deck.length}` : "0 / 0";
+                  });
+                }} />
+              </div>
+              {/* Main slide display (selected slide at its final fragment) */}
+              <div class="slide-preview-main" ref={(el: HTMLDivElement) => {
+                createEffect(() => {
+                  if (viewMode() !== "slide") return;
+                  const deck = slides();
+                  const idx = selectedSlide();
+                  const slide = deck[idx];
+                  el.innerHTML = "";
+                  if (slide) {
+                    render(el, <div class="slide-preview-frame"><SlideView slide={slide} /></div>);
+                  } else {
+                    el.innerHTML = `<div class="slide-preview-empty">No slides. Separate slides with <code>---</code>.</div>`;
+                  }
+                });
+              }} />
+              {/* Thumbnail strip */}
+              <div class="slide-thumbnails" ref={(el: HTMLDivElement) => {
+                createEffect(() => {
+                  if (viewMode() !== "slide") return;
+                  const deck = slides();
+                  const sel = selectedSlide();
+                  el.innerHTML = "";
+                  deck.forEach((slide, i) => {
+                    const thumb = document.createElement("button");
+                    thumb.className = `slide-thumbnail ${i === sel ? "selected" : ""}`;
+                    thumb.title = `Slide ${i + 1}`;
+                    const num = document.createElement("span");
+                    num.className = "slide-thumbnail-number";
+                    num.textContent = String(i + 1);
+                    thumb.appendChild(num);
+                    const frame = document.createElement("div");
+                    frame.className = "slide-thumbnail-frame";
+                    thumb.appendChild(frame);
+                    render(frame, <SlideView slide={slide} />);
+                    thumb.addEventListener("click", () => setSelectedSlide(i));
+                    thumb.addEventListener("dblclick", () => openPlayer(i));
+                    el.appendChild(thumb);
+                  });
+                });
+              }} />
+            </div>
           </div>
           </div>
+          {/* Slide player overlay - rendered at app root, above everything */}
+          <Show when={playerOpen}>
+            <SlidePlayer
+              deck={slides}
+              active={playerOpen}
+              startSlide={playerStartSlide}
+              onExit={() => setPlayerOpen(false)}
+            />
+          </Show>
         </div>
       )}
     </Show>

@@ -1,5 +1,6 @@
 import {
   "mizchi/markdown",
+  "mizchi/markdown/slide",
 }
 
 options(
@@ -17,6 +18,7 @@ options(
         "md_parse_with_source",
         "md_parse_incremental",
         "md_free",
+        "md_parse_slides",
       ],
     },
     "wasm-gc": {
@@ -32,6 +34,7 @@ options(
         "md_parse_with_source",
         "md_parse_incremental",
         "md_free",
+        "md_parse_slides",
       ],
     },
   },

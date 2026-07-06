@@ -10,6 +10,10 @@
     ".": {
       "import": "./js/api.js",
       "types": "./js/api.d.ts"
+    },
+    "./js/slide_api.js": {
+      "import": "./js/slide_api.js",
+      "types": "./js/slide_api.d.ts"
     }
   },
   "keywords": [

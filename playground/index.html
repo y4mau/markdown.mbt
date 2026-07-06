@@ -1293,6 +1293,462 @@
         height: auto;
       }
     }
+
+    /* === slide mode === */
+    /* Ported from slidecraft styles.css; all ported classes prefixed `sld-`,
+       colors adapted to the playground CSS custom properties / dark theme.
+       `.slide-preview*`, `.slide-thumbnail*`, `.present-btn` are playground
+       pane chrome (not ported). */
+
+    /* --- View-mode layout: slide pane on the right, editor stays left --- */
+    .slide-preview {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+      background: var(--bg-primary);
+    }
+
+    .container.view-slide .preview {
+      display: none;
+    }
+
+    .container.view-slide .slide-preview {
+      display: flex;
+      border-left: 1px solid var(--border-color);
+    }
+
+    .slide-preview-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+    }
+
+    .slide-preview-counter {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-left: auto;
+    }
+
+    .present-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-color);
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .present-btn:hover {
+      filter: brightness(1.1);
+    }
+
+    .slide-preview-main {
+      padding: 16px;
+      flex-shrink: 0;
+    }
+
+    .slide-preview-frame {
+      aspect-ratio: 16 / 9;
+      width: 100%;
+      max-width: 920px;
+      margin: 0 auto;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .slide-preview-empty {
+      color: var(--text-secondary);
+      text-align: center;
+      padding: 40px 16px;
+      font-size: 14px;
+    }
+
+    .slide-thumbnails {
+      flex: 1;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+      padding: 0 16px 16px;
+      align-content: start;
+    }
+
+    .slide-thumbnail {
+      position: relative;
+      padding: 0;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 2px solid var(--border-color);
+      background: none;
+      cursor: pointer;
+    }
+
+    .slide-thumbnail:hover {
+      border-color: var(--text-secondary);
+    }
+
+    .slide-thumbnail.selected {
+      border-color: var(--accent-color);
+    }
+
+    .slide-thumbnail-frame {
+      aspect-ratio: 16 / 9;
+      pointer-events: none;
+    }
+
+    .slide-thumbnail-number {
+      position: absolute;
+      top: 4px;
+      left: 6px;
+      z-index: 1;
+      font-size: 11px;
+      color: var(--text-secondary);
+      background: var(--bg-secondary);
+      border-radius: 4px;
+      padding: 0 4px;
+    }
+
+    /* --- Slide canvas (16:9 frame, container query units) --- */
+    .sld-slide {
+      container-type: size;
+      width: 100%;
+      height: 100%;
+      background: var(--bg-primary);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sld-slide-content {
+      width: 86cqw;
+      max-height: 88cqh;
+      display: flex;
+      flex-direction: column;
+      gap: 2.4cqh;
+    }
+
+    .sld-slide-content .markdown-body {
+      display: flex;
+      flex-direction: column;
+      gap: 2.4cqh;
+    }
+
+    .sld-slide-content h1 {
+      font-size: 7cqw;
+      line-height: 1.2;
+      margin: 0;
+      background: linear-gradient(120deg, var(--text-primary), var(--accent-color));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .sld-slide-content h2 {
+      font-size: 5cqw;
+      line-height: 1.25;
+      margin: 0;
+    }
+
+    .sld-slide-content h3,
+    .sld-slide-content h4,
+    .sld-slide-content h5,
+    .sld-slide-content h6 {
+      font-size: 3.8cqw;
+      margin: 0;
+    }
+
+    .sld-slide-content p,
+    .sld-slide-content li {
+      font-size: 3cqw;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .sld-slide-content ul,
+    .sld-slide-content ol {
+      padding-left: 4cqw;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1cqh;
+    }
+
+    .sld-slide-content code {
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+      background: var(--bg-tertiary);
+      border-radius: 0.6cqw;
+      padding: 0.2cqw 0.8cqw;
+      font-size: 0.92em;
+    }
+
+    .sld-slide-content pre {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 1cqw;
+      padding: 2cqw 2.5cqw;
+      overflow: auto;
+      margin: 0;
+    }
+
+    .sld-slide-content pre code {
+      background: none;
+      padding: 0;
+      font-size: 2.2cqw;
+      line-height: 1.55;
+    }
+
+    .sld-slide-content blockquote {
+      border-left: 0.6cqw solid var(--accent-color);
+      padding-left: 2.4cqw;
+      margin: 0;
+      color: var(--text-secondary);
+      font-style: italic;
+      font-size: 3cqw;
+    }
+
+    .sld-slide-content img {
+      max-width: 100%;
+      max-height: 50cqh;
+      object-fit: contain;
+      border-radius: 1cqw;
+      align-self: center;
+    }
+
+    .sld-slide-content a {
+      color: var(--accent-color);
+    }
+
+    /* Fragments (step-by-step reveal) */
+    .sld-fragment {
+      opacity: 0;
+      transform: translateY(2.5cqh);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 2.4cqh;
+    }
+
+    .sld-fragment.sld-visible {
+      opacity: 1;
+      transform: none;
+    }
+
+    /* --- Fullscreen player --- */
+    .sld-player {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      overflow: hidden;
+      perspective: 1600px;
+      z-index: 2000;
+    }
+
+    .sld-player.sld-laser-on {
+      cursor: none;
+    }
+
+    .sld-frame {
+      position: absolute;
+      inset: 0;
+    }
+
+    .sld-anim-none {
+      animation: none;
+    }
+
+    .sld-anim-fade {
+      animation: sld-fade-in 0.55s ease both;
+    }
+
+    .sld-anim-slide.sld-dir-forward {
+      animation: sld-slide-in-right 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .sld-anim-slide.sld-dir-backward {
+      animation: sld-slide-in-left 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .sld-anim-zoom {
+      animation: sld-zoom-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .sld-anim-flip {
+      animation: sld-flip-in 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+      backface-visibility: hidden;
+    }
+
+    @keyframes sld-fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes sld-slide-in-right {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+
+    @keyframes sld-slide-in-left {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(0); }
+    }
+
+    @keyframes sld-zoom-in {
+      from { transform: scale(0.6); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes sld-flip-in {
+      from { transform: rotateY(-90deg); opacity: 0; }
+      to { transform: rotateY(0); opacity: 1; }
+    }
+
+    .sld-effects-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .sld-blackout {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      animation: sld-fade-in 0.3s ease both;
+    }
+
+    .sld-laser-dot {
+      position: fixed;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #f43f5e;
+      box-shadow: 0 0 12px 6px rgb(244 63 94 / 60%);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .sld-progress-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 4px;
+      background: rgb(148 163 184 / 20%);
+    }
+
+    .sld-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-color), #4cc9f0);
+      transition: width 0.3s ease;
+    }
+
+    .sld-controls {
+      position: fixed;
+      bottom: 1.2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.7rem;
+      background: rgb(15 23 42 / 85%);
+      border: 1px solid var(--border-color);
+      border-radius: 999px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      backdrop-filter: blur(6px);
+      color: #e2e8f0;
+    }
+
+    .sld-controls.sld-visible {
+      opacity: 1;
+    }
+
+    .sld-controls button {
+      border: none;
+      background: none;
+      color: inherit;
+      padding: 0.3rem 0.55rem;
+      border-radius: 999px;
+      line-height: 1;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .sld-controls button:hover {
+      background: rgb(148 163 184 / 20%);
+    }
+
+    .sld-controls button.sld-active {
+      color: #f43f5e;
+    }
+
+    .sld-controls button:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    .sld-counter {
+      color: #94a3b8;
+      font-size: 0.85rem;
+      padding: 0 0.4rem;
+      white-space: nowrap;
+    }
+
+    .sld-help-overlay {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgb(15 23 42 / 95%);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2rem 2.5rem;
+      min-width: 22rem;
+      backdrop-filter: blur(8px);
+      color: #e2e8f0;
+      z-index: 2100;
+    }
+
+    .sld-help-overlay h2 {
+      font-size: 1.1rem;
+      margin: 0 0 1rem;
+      color: var(--accent-color);
+    }
+
+    .sld-help-overlay dl {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin: 0;
+    }
+
+    .sld-help-overlay dl > div {
+      display: flex;
+      justify-content: space-between;
+      gap: 2rem;
+    }
+
+    .sld-help-overlay dt {
+      font-family: monospace;
+      color: #e2e8f0;
+    }
+
+    .sld-help-overlay dd {
+      color: #94a3b8;
+      margin: 0;
+    }
   </style>
 </head>
 <body>
